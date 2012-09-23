@@ -89,11 +89,9 @@ class GroovyCompiler {
 
 			def newClasses = [:]
 
-			cu.setClassgenCallback(new ClassgenCallback() {
-				void call(org.objectweb.asm.ClassVisitor writer, ClassNode node) {
+			cu.setClassgenCallback({ writer, node ->
 					//println 'classgen: ' + node
 					//println node.compileUnit.classesToCompile
-				}
 			})
 
 			cu.compile()
