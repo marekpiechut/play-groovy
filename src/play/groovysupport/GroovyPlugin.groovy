@@ -22,7 +22,7 @@ import play.cache.Cache
 class GroovyPlugin extends PlayPlugin {
 
 	def compiler
-	def currentSources = [:]
+	def currentSources
 
 	@Override
 	void onLoad() {
@@ -73,11 +73,12 @@ class GroovyPlugin extends PlayPlugin {
 	@Override
 	boolean detectClassesChange() {
 
-		def sources = sources();
-        def update = { map ->
-            for (entry in map.entrySet()) {
-                def appClass = toApplicationClass(entry.key)
-                if (!appClass || appClass.timestamp < entry.value) {
+		def sources = sources("groovy");
+
+        def update = { src ->
+            for (entry in src) {
+                def appClass = Play.classes.getApplicationClass(entry.className)
+                if (!appClass || appClass.timestamp < entry.modifyStamp) {
                     return true
                 }
 
@@ -85,10 +86,10 @@ class GroovyPlugin extends PlayPlugin {
             }
         }
 
-        if (update(sources.groovy)) {
-            generateStubs(sources.groovy)
+        if (update(sources)) {
+            generateStubs(sources)
             Play.classloader.detectChanges()
-            def result = updateGroovy(sources.groovy)
+            def result = updateGroovy(sources)
             if (result) {
                 updateInternalApplicationClasses(result)
             }
@@ -102,12 +103,14 @@ class GroovyPlugin extends PlayPlugin {
 	boolean compileSources() {
 
 		try {
-			def sources = sources()
+			def groovySources = sources("groovy")
+            generateStubs(groovySources)
 
-            generateStubs(sources.groovy)
+            def javaSources = sources("java")
 
-            updateJava(sources.java)
-			def result = updateGroovy(sources.groovy)
+            Play.@classes.compiler.compile(javaSources*.className as String[])
+
+            def result = updateGroovy(groovySources)
 
 			if (result) {
 				updateInternalApplicationClasses(result)
@@ -120,7 +123,7 @@ class GroovyPlugin extends PlayPlugin {
 	}
 
 	/**
-	 * Update Play's internal ApplicationClasses
+	 * Update Play internal ApplicationClasses
 	 */
 	def updateInternalApplicationClasses(CompilationResult result) {
 
@@ -131,31 +134,20 @@ class GroovyPlugin extends PlayPlugin {
 
 		// add/update other classes
 		result.updatedClasses.each {
+            //We replace byte code in current application class
+            //as it was already created by stub generator and compiled
+            //with Java compiler
             def appClass = Play.classes.getApplicationClass(it.name)
-			// TODO: if the javaFile can't be located for some reason
-			// it will cause serious problems later on, so it needs to
-			// be handled here
 			appClass.compiled(it.code)
+            //We can safely use modification stamp of a stub, it will be more recent then groovy file timestamp
             appClass.timestamp = appClass.javaFile.lastModified()
+            //Groovy classes also need Play byte code enhances
             appClass.enhance()
+            //Make Play see (replace) current classes
 			Play.@classes.add(appClass)
+            //Need to cache byte code or you won't see any changes
             BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
 		}
-	}
-
-	def reload() {
-
-		// throwing a RuntimeException will force Play to reload
-		// and reload all our classes.
-		// We could try to use the HotswapAgent here but it's probably not
-		// a big problem to just force a reload of the code every time (Scala
-		// plugin seems to do it this way too)
-
-		// TODO: I *think* that every reload triggers the compileSources() hook,
-		// which means stuff is getting compiled twice at the moment since we
-		// aren't doing a check of lastmodified time before recompiles
-		// not a huge prob for now but needs fixing
-		throw new RuntimeException('Need reload')
 	}
 
 	def compilationException(compilationError) {
@@ -169,101 +161,25 @@ class GroovyPlugin extends PlayPlugin {
 		}
 	}
 
-	/**
-	 * return a list of all the paths of currently loaded modules
-	 * except the groovy module
-	 */
-	def loadedModuleNames = {
-		Play.modules.findAll { name, f -> name != 'groovy'}.collect { name, file ->
-			file.getRealFile().toString().toLowerCase() }
-	}
-
-	/**
-	 * get a map of our Groovy and Java sources... because the Groovy Compiler
-	 * isn't always so great at compiling Java files, for modules we want to use
-	 * a Java compiler instead, since Groovy's had some problems (for example, the
-	 * inner annotation definitions in the CRUD module caused issues)
-	 *
-	 * So, any .java files which are part of a module will be considered Java
-	 * sources. Any Java files within the Play app will be compiled by Groovy as
-	 * usual to ensure cross-compilation support works fine.
-	 */
-	def sources() {
-		def sources = [:]
-		Play.javaPath.each {
-			GroovyCompiler.getSourceFiles(it.getRealFile()).each { f -> sources[f] = f.lastModified()}
-		}
-
-        def javaSources = sources.findAll { src, lm -> src.name.toLowerCase().endsWith('.java') }
-		def groovySources = sources.findAll { f, lm -> f.name.toLowerCase().endsWith('.groovy') }
-
-		return [
-			groovy: groovySources,
-			java: javaSources.findAll { file, lastModified ->
-				// we'd like to override the testrunner controller with our own, so
-				// let's make sure it never gets compiled... bit of a hack but I couldn't
-				// see any other way to override a controller in an included module
-				!(file.toString() =~ /(?i)testrunner.+TestRunner\.java/)
-			}
-		]
-	}
-
-	def updateJava(sources) {
-
-		if (currentSources?.java != sources) {
-
-			def result = []
-
-			sources.each { file, time ->
-                def appClass = toApplicationClass(file)
-
-                if(appClass) {
-                    // TODO: refresh based on lastmodified timestamp, etc..
-                    appClass.refresh()
-
-                    if (appClass.compile() == null) {
-                        Play.@classes.classes.remove(appClass.name)
-                    } else {
-                        result << appClass
-                    }
-                } else {
-                    println("Could not get class for name: ${src}.")
-                }
-            }
-
-            currentSources.java = sources
-
-            return result
+    /**
+     * Get groovy sources from current Play javaPath
+     *
+     * @return Map [file -> modify stamp]
+     */
+    def sources(extension) {
+        def sources = []
+        Play.javaPath.each {
+            sources += compiler.getSourceFiles(it.getRealFile(), extension)
         }
 
-        return null
+        return sources
 	}
-
-    private def toApplicationClass(file) {
-        def src = file.absolutePath
-        // remove .java at the end
-        src = src.substring(0, src.lastIndexOf('.'))
-
-        //We have to remove classpath prefix from file name
-        //to make sure we can get fully qualified class name from it
-        for (jPath in Play.javaPath) {
-            def path = jPath.realFile.absolutePath;
-            if (src.startsWith(path)) {
-                src = src.substring(path.length() + 1)
-                break
-            }
-        }
-
-        def className = src.replace(File.separator, '.')
-        def appClass = Play.classes.getApplicationClass(className)
-        return appClass
-    }
 
     def generateStubs(groovySources) {
         def classLoader = new GroovyClassLoader(Play.classloader.rootLoader, compiler.compilerConf)
         def compilationUnit = new JavaStubCompilationUnit(compiler.compilerConf, classLoader, compiler.stubsFolder)
-        groovySources.each { file, time ->
-            compilationUnit.addSource(file)
+        groovySources.each {
+            compilationUnit.addSource(it.file)
         }
 
         compilationUnit.compile()
@@ -271,12 +187,12 @@ class GroovyPlugin extends PlayPlugin {
 
 	def updateGroovy(sources) {
 
-		if (currentSources?.groovy != sources) {
+		if (currentSources != sources) {
 			// sources have changed, so compile them
 			Logger.debug('Compiling Groovy sources')
 
-			def result = compiler.update(sources.keySet().toList())
-			currentSources.groovy = sources
+			def result = compiler.update(sources)
+			currentSources = sources
 
 			return result
 		}

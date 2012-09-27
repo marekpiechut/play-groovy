@@ -37,17 +37,17 @@ class GroovyCompiler {
 		compilerConf = new CompilerConfiguration()
 		compilerConf.setTargetDirectory(new File(output, 'classes/'))
 		compilerConf.setClasspathList(classpath)
-
-		
 	}
 
-	static def getSourceFiles = { path, regex = /^[^.].*[.](groovy|java)$/ ->
-			
+    static def getSourceFiles = { path, extension = "groovy" ->
+
 		def list = []
 		if(path.exists()) {
+            extension = '.' + extension
 			path.eachFileRecurse(FileType.FILES, { f ->
-				if (f =~ regex) {
-					list << f
+				if (f.name.endsWith(extension)) {
+					def source = new Source(file : f, className : fileToClassName(f), modifyStamp : f.lastModified())
+                    list << source
 				}
 			})
 		}
@@ -70,6 +70,25 @@ class GroovyCompiler {
 		return classesToSources[name]
 	}
 
+    static def fileToClassName(file) {
+        def src = file.absolutePath
+        // remove file extension
+        src = src.substring(0, src.lastIndexOf('.'))
+
+        //We have to remove classpath prefix from file name
+        //to make sure we can get fully qualified class name from it
+        for (jPath in Play.javaPath) {
+            def path = jPath.realFile.absolutePath;
+            if (src.startsWith(path)) {
+                src = src.substring(path.length() + 1)
+                break
+            }
+        }
+
+        def className = src.replace(File.separator, '.')
+        return className
+    }
+
 	CompilationResult update(List sources) {
 		
 		// TODO: investigate if there's a better way than creating new
@@ -84,7 +103,7 @@ class GroovyCompiler {
 
 		// fix static star imports, see comment on field
 		cu.addPhaseOperation(importFixer, org.codehaus.groovy.control.Phases.CONVERSION)
-		cu.addSources(sources as File[])
+		cu.addSources(sources*.file as File[])
 
 		try {
 
@@ -236,4 +255,10 @@ class CompilationErrorException extends Exception {
 		super()
 		this.compilationError = compilationError
 	}
+}
+
+class Source {
+    def file
+    def className
+    def modifyStamp
 }
