@@ -193,7 +193,7 @@ class GroovyPlugin extends PlayPlugin {
 			}
 			return false
 		}
-		def groovySources = sources.findAll { f, lm -> !(f in javaSources.keySet()) }
+		def groovySources = sources.findAll { f, lm -> f.name.toLowerCase().endsWith('.groovy') }
 
 		return [
 			groovy: groovySources,
