@@ -9,4 +9,7 @@ logs
 .classpath
 .project
 build.sh
-/target/
+target
+.idea
+precompiled
+*.iml
