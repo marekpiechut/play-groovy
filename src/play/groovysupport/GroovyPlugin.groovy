@@ -13,21 +13,30 @@ import play.groovysupport.compiler.*
 import org.junit.Assert
 
 import spock.lang.Specification
+import org.codehaus.groovy.tools.javac.JavaStubCompilationUnit
+import play.classloading.BytecodeCache
+import groovy.io.FileType
+import play.classloading.ApplicationClassloader
+import play.cache.Cache
 
 class GroovyPlugin extends PlayPlugin {
-	
+
 	def compiler
 	def currentSources = [:]
 
 	@Override
 	void onLoad() {
 
+        def stubsFolder = new File(Play.tmpDir, 'groovy_stubs');
 		compiler = new GroovyCompiler(Play.applicationPath,
 			new File(Play.modules['groovy'].getRealFile(), 'lib'),
 			System.getProperty('java.class.path')
 				.split(System.getProperty('path.separator')) as List,
-			Play.tmpDir
+			Play.tmpDir,
+            stubsFolder
 		)
+
+        Play.javaPath.add(0, VirtualFile.fromRelativePath('tmp/groovy_stubs'))
 
 		onConfigurationRead()
 
@@ -51,14 +60,8 @@ class GroovyPlugin extends PlayPlugin {
 			Play.classloader.getAssignableClasses(GebTest.class)
 				.findAll { !Modifier.isAbstract(it.getModifiers()) }
 		}
-		
-		Logger.info('Groovy support is active')
-	}
 
-	@Override
-	void onConfigurationRead() {
-		// TODO: investigate how necessary this is...
-		Play.configuration.put("play.bytecodeCache", "false")
+		Logger.info('Groovy support is active')
 	}
 
 	@Override
@@ -70,26 +73,29 @@ class GroovyPlugin extends PlayPlugin {
 	@Override
 	boolean detectClassesChange() {
 
-		try {
-			def sources = sources()
-			def javaResult = updateJava(sources.java)
-			def groovyResult = updateGroovy(sources.groovy)
+		def sources = sources();
+        def update = { map ->
+            for (entry in map.entrySet()) {
+                def appClass = toApplicationClass(entry.key)
+                if (!appClass || appClass.timestamp < entry.value) {
+                    return true
+                }
 
-			if (groovyResult) {
-				updateInternalApplicationClasses(groovyResult)
-			}
+                return false
+            }
+        }
 
-			if (javaResult || groovyResult) {
-				// force reload for time being whenever we compile stuff
-				reload()
-			}
-		} catch (RuntimeException e) {
-			throw e
-		} catch (CompilationErrorException e) {
-			throw compilationException(e.compilationError)
-		}
+        if (update(sources.groovy)) {
+            generateStubs(sources.groovy)
+            Play.classloader.detectChanges()
+            def result = updateGroovy(sources.groovy)
+            if (result) {
+                updateInternalApplicationClasses(result)
+            }
+            return true;
+        }
 
-		return true
+        return false
 	}
 
 	@Override
@@ -98,7 +104,9 @@ class GroovyPlugin extends PlayPlugin {
 		try {
 			def sources = sources()
 
-			updateJava(sources.java)
+            generateStubs(sources.groovy)
+
+            updateJava(sources.java)
 			def result = updateGroovy(sources.groovy)
 
 			if (result) {
@@ -115,7 +123,7 @@ class GroovyPlugin extends PlayPlugin {
 	 * Update Play's internal ApplicationClasses
 	 */
 	def updateInternalApplicationClasses(CompilationResult result) {
-		
+
 		// remove deleted classes
 		result.removedClasses.each {
 			Play.classes.remove(it.name)
@@ -123,15 +131,15 @@ class GroovyPlugin extends PlayPlugin {
 
 		// add/update other classes
 		result.updatedClasses.each {
-			def appClass = new ApplicationClass()
-			appClass.name = it.name
-			appClass.javaFile = new VirtualFile(it.source)
+            def appClass = Play.classes.getApplicationClass(it.name)
 			// TODO: if the javaFile can't be located for some reason
-			// it will cause serious problems later on, so it needs to 
+			// it will cause serious problems later on, so it needs to
 			// be handled here
-			appClass.refresh()
 			appClass.compiled(it.code)
-			Play.classes.add(appClass)
+            appClass.timestamp = appClass.javaFile.lastModified()
+            appClass.enhance()
+			Play.@classes.add(appClass)
+            BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
 		}
 	}
 
@@ -166,7 +174,7 @@ class GroovyPlugin extends PlayPlugin {
 	 * except the groovy module
 	 */
 	def loadedModuleNames = {
-		Play.modules.findAll { name, f -> name != 'groovy'}.collect { name, file -> 
+		Play.modules.findAll { name, f -> name != 'groovy'}.collect { name, file ->
 			file.getRealFile().toString().toLowerCase() }
 	}
 
@@ -185,14 +193,8 @@ class GroovyPlugin extends PlayPlugin {
 		Play.javaPath.each {
 			GroovyCompiler.getSourceFiles(it.getRealFile()).each { f -> sources[f] = f.lastModified()}
 		}
-		
-		def javaSources = sources.findAll { src, lm ->
-			src = src.toString().toLowerCase()
-			for (modName in loadedModuleNames()) {
-				if (src.startsWith(modName) && src.endsWith('.java')) return true
-			}
-			return false
-		}
+
+        def javaSources = sources.findAll { src, lm -> src.name.toLowerCase().endsWith('.java') }
 		def groovySources = sources.findAll { f, lm -> f.name.toLowerCase().endsWith('.groovy') }
 
 		return [
@@ -209,33 +211,18 @@ class GroovyPlugin extends PlayPlugin {
 	def updateJava(sources) {
 
 		if (currentSources?.java != sources) {
-            
+
 			def result = []
-            
+
 			sources.each { file, time ->
-				def src = file.absolutePath
-				// remove .java at the end
-				src = src.substring(0, src.length()-5)
-                
-				//We have to remove classpath prefix from file name
-                //to make sure we can get fully qualified class name from it
-				for (jPath in Play.javaPath) {
-                    def path = jPath.realFile.absolutePath;
-					if (src.startsWith(path)) {
-						src = src.substring(path.length() + 1)
-                        break
-					}
-				}
-                
-                def className = src.replace(File.separator, '.')
-				def appClass = Play.classes.getApplicationClass(className)
-                
+                def appClass = toApplicationClass(file)
+
                 if(appClass) {
                     // TODO: refresh based on lastmodified timestamp, etc..
                     appClass.refresh()
-                    
+
                     if (appClass.compile() == null) {
-                        Play.classes.classes.remove(appClass.name)
+                        Play.@classes.classes.remove(appClass.name)
                     } else {
                         result << appClass
                     }
@@ -243,17 +230,47 @@ class GroovyPlugin extends PlayPlugin {
                     println("Could not get class for name: ${src}.")
                 }
             }
-            
+
             currentSources.java = sources
-            
+
             return result
         }
-        
+
         return null
 	}
 
+    private def toApplicationClass(file) {
+        def src = file.absolutePath
+        // remove .java at the end
+        src = src.substring(0, src.lastIndexOf('.'))
+
+        //We have to remove classpath prefix from file name
+        //to make sure we can get fully qualified class name from it
+        for (jPath in Play.javaPath) {
+            def path = jPath.realFile.absolutePath;
+            if (src.startsWith(path)) {
+                src = src.substring(path.length() + 1)
+                break
+            }
+        }
+
+        def className = src.replace(File.separator, '.')
+        def appClass = Play.classes.getApplicationClass(className)
+        return appClass
+    }
+
+    def generateStubs(groovySources) {
+        def classLoader = new GroovyClassLoader(Play.classloader.rootLoader, compiler.compilerConf)
+        def compilationUnit = new JavaStubCompilationUnit(compiler.compilerConf, classLoader, compiler.stubsFolder)
+        groovySources.each { file, time ->
+            compilationUnit.addSource(file)
+        }
+
+        compilationUnit.compile()
+    }
+
 	def updateGroovy(sources) {
-		
+
 		if (currentSources?.groovy != sources) {
 			// sources have changed, so compile them
 			Logger.debug('Compiling Groovy sources')

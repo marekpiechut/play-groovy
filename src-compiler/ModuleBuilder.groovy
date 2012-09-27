@@ -13,7 +13,7 @@ class ModuleBuilder {
 			.split(System.getProperty('path.separator')) as List
 
 		def compiler = new GroovyCompiler(new File('.'), new File('./libs'), 
-			classpath, new File('tmp'))
+			classpath, new File('tmp'), new File('tmp', 'groovy_stubs'))
 
 		def jar = {
 			Files.delete(new File('lib/play-groovy.jar'))

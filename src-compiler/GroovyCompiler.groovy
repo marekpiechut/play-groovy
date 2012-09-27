@@ -26,12 +26,13 @@ class GroovyCompiler {
 	def compilerConf
 	def prevClasses = [:]
 	def classesToSources = [:]
+    def stubsFolder
 
-	def GroovyCompiler(File app, File libs, List classpath, File output) {
+	def GroovyCompiler(File app, File libs, List classpath, File output, File stubsFolder) {
 		
 		this.app = app
 		this.output = output
-
+        this.stubsFolder = stubsFolder
 		// TODO: set source encoding to utf8
 		compilerConf = new CompilerConfiguration()
 		compilerConf.setTargetDirectory(new File(output, 'classes/'))
@@ -88,11 +89,6 @@ class GroovyCompiler {
 		try {
 
 			def newClasses = [:]
-
-			cu.setClassgenCallback({ writer, node ->
-					//println 'classgen: ' + node
-					//println node.compileUnit.classesToCompile
-			})
 
 			cu.compile()
 
