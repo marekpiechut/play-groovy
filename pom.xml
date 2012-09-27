@@ -105,6 +105,17 @@ under the License.
 
     <build>
         <sourceDirectory>src</sourceDirectory>
+		<resources>
+            <resource>
+				<directory>src</directory>
+				<excludes>
+					<exclude>**/*.groovy</exclude>
+				</excludes>
+				<includes>
+					<include>play.plugins</include>
+				</includes>
+			</resource>
+		</resources>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.gmaven</groupId>
