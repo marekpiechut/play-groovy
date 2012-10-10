@@ -62,16 +62,15 @@
 				<include name="**/*.xml"/>
 				<include name="**/play.plugins"/>
 			</fileset>
-		</copy>
+        </copy>
 
-		<java classname="play.groovysupport.build.ModuleBuilder" fork="true" maxmemory="1024m"
-				failonerror="true">
-			<jvmarg value="-Xms512m"/>
-			<classpath refid="play.classpath"/>
-			<classpath refid="project.classpath" />
-		</java>
+        <groovyc srcdir="src" destdir="tmp/classes">
+            <classpath refid="play.classpath"/>
+            <classpath refid="project.classpath"/>
+            <javac source="1.5" target="1.5"/>
+        </groovyc>
 
-		<jar destfile="lib/play-groovy.jar" basedir="tmp/classes">
+        <jar destfile="lib/play-groovy.jar" basedir="tmp/classes">
 			<manifest>
 				<section name="Play">
 					<attribute name="Specification-Title" value="Groovy"/>
