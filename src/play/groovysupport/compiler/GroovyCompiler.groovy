@@ -1,11 +1,7 @@
 package play.groovysupport.compiler
 
-import groovy.lang.GroovyClassLoader
-import groovy.io.FileType
-
 import org.codehaus.groovy.control.CompilerConfiguration
-import org.codehaus.groovy.control.CompilationUnit
-import org.codehaus.groovy.control.CompilationUnit.ClassgenCallback
+
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.CompilationFailedException
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
@@ -14,10 +10,13 @@ import org.codehaus.groovy.control.messages.SyntaxErrorMessage
 
 import static org.codehaus.groovy.control.CompilationUnit.SourceUnitOperation
 import org.codehaus.groovy.ast.ClassHelper
-import org.codehaus.groovy.ast.ClassNode
+
+import groovy.transform.Immutable
 
 import play.Play
-import play.vfs.VirtualFile
+
+import org.codehaus.groovy.tools.javac.JavaAwareCompilationUnit
+import play.Logger
 
 class GroovyCompiler {
 	
@@ -37,21 +36,12 @@ class GroovyCompiler {
 		compilerConf = new CompilerConfiguration()
 		compilerConf.setTargetDirectory(new File(output, 'classes/'))
 		compilerConf.setClasspathList(classpath)
-	}
-
-    static def getSourceFiles = { path, extension = "groovy" ->
-
-		def list = []
-		if(path.exists()) {
-            extension = '.' + extension
-			path.eachFileRecurse(FileType.FILES, { f ->
-				if (f.name.endsWith(extension)) {
-					def source = new Source(file : f, className : fileToClassName(f), modifyStamp : f.lastModified())
-                    list << source
-				}
-			})
-		}
-		return list
+        def sourceVersion = Play.configuration.get('java.source', '1.5')
+        Logger.debug("Compiling using ${sourceVersion} source/target level")
+        def compilerOptions = ['source': sourceVersion, 'target': sourceVersion, 'keepStubs' : true, 'stubDir' : stubsFolder]
+        compilerConf.setDebug(true)
+        compilerConf.setRecompileGroovySource(true)
+        compilerConf.setJointCompilationOptions(compilerOptions)
 	}
 
 	File classNameToFile(className) {
@@ -93,10 +83,7 @@ class GroovyCompiler {
 		
 		// TODO: investigate if there's a better way than creating new
 		// CompilationUnit instances every time...
-		def classLoader = new ModClassLoader()
-
-		def cu = new CompilationUnit(classLoader)
-		cu.configure(compilerConf)
+		def cu = new JavaAwareCompilationUnit(compilerConf, new GroovyClassLoader())
 
 		// reset classesToSources map
 		classesToSources = [:]
@@ -134,6 +121,7 @@ class GroovyCompiler {
 						code: newClasses[cn].bytes, source: classNameToSource(cn)) 
 				}
 
+            //TODO: Removed classes will not work this way if we only recompile changed classes
 			def removed = prevClasses.keySet().findAll { !(it in newClasses.keySet()) }
 				.collect { cn -> 
 					new ClassDefinition(name: cn, code: null, source: null) 
@@ -214,13 +202,6 @@ class GroovyCompiler {
 	}
 }
 
-class ModClassLoader extends GroovyClassLoader {
-	
-	def ModClassLoader() {
-		//super(Play.classloader)
-	}
-}
-
 class ClassDefinition {
 	String name
 	byte[] code
@@ -255,10 +236,4 @@ class CompilationErrorException extends Exception {
 		super()
 		this.compilationError = compilationError
 	}
-}
-
-class Source {
-    def file
-    def className
-    def modifyStamp
 }
