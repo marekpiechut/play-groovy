@@ -25,7 +25,7 @@ import com.gargoylesoftware.htmlunit.WebResponseData
 import com.gargoylesoftware.htmlunit.WebRequest
 
 class GebTest extends GebSpec {
-	
+
 	//static ExecutorService testExecutor = Executors.newSingleThreadExecutor()
 	def lastStatusCode = null
 
@@ -42,7 +42,7 @@ class GebTest extends GebSpec {
 	}
 
 	def getDriver() {
-		
+
 		return new HtmlUnitDriver() {
 			@Override WebClient modifyWebClient(WebClient client) {
 				GebTest.wrapWebConnection(client)
@@ -65,7 +65,7 @@ class GebTest extends GebSpec {
 
 				def url = request.getUrl()
 				def response = null
-				
+
 				// TODO: make sure this works with default port
 				if (url.getPort().toString() == Play.configuration.getProperty('http.port')) {
 

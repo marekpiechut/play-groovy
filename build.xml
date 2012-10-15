@@ -24,28 +24,11 @@
 		</fileset>
 	</path>
 
-	<target name="build-compiler">
-		<taskdef name="groovyc" classname="org.codehaus.groovy.ant.Groovyc"
-			classpathref="project.classpath"/>
-		<delete dir="tmp"/>
-		<delete file="lib/play-groovy-compiler.jar"/>
-		<mkdir dir="tmp/compiler-classes"/>
+    <taskdef name="groovyc" classname="org.codehaus.groovy.ant.Groovyc"
+             classpathref="project.classpath"/>
 
-		<groovyc srcdir="src-compiler" destdir="tmp/compiler-classes" verbose="yes">
-			<classpath refid="play.classpath"/>
-			<classpath refid="project.classpath"/>
-		</groovyc>
 
-		<jar destfile="lib/play-groovy-compiler.jar" basedir="tmp/compiler-classes">
-			<manifest>
-				<section name="Play">
-					<attribute name="Specification-Title" value="Groovy Compiler"/>
-				</section>
-			</manifest>
-		</jar>
-	</target>
-
-	<target name="build" depends="check,build-compiler">
+	<target name="build" depends="check">
 		<delete dir="tmp"/>
 		<delete file="lib/play-groovy.jar"/>
 

@@ -90,7 +90,7 @@ class GroovyCompiler {
 
 		// fix static star imports, see comment on field
 		cu.addPhaseOperation(importFixer, org.codehaus.groovy.control.Phases.CONVERSION)
-		cu.addSources(sources*.file as File[])
+		cu.addSources(sources as File[])
 
 		try {
 
