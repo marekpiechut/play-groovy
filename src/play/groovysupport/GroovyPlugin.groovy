@@ -79,12 +79,12 @@ class GroovyPlugin extends PlayPlugin {
         def sources = findSources()
         try {
             def groovy = updateGroovy(sources.groovy.grep(isChanged))
-            updateInternalApplicationClasses(groovy)
+            updateInternalApplicationClasses(groovy, true)
             def java = updateJava(sources.java.grep(isChanged))
-            updateInternalApplicationClasses(java)
+            updateInternalApplicationClasses(java, true)
 
             if (java || groovy) {
-//                removeDeletedClasses();
+                removeDeletedClasses();
             }
         } catch (CompilationErrorException e) {
             throw compilationException(e.compilationError)
@@ -98,8 +98,10 @@ class GroovyPlugin extends PlayPlugin {
 
         try {
             def sources = findSources()
-            updateGroovy(sources.groovy)
-            updateJava()
+            def groovy = updateGroovy(sources.groovy)
+            updateInternalApplicationClasses(groovy, false)
+            def java = updateJava()
+            updateInternalApplicationClasses(java, false)
         } catch (CompilationErrorException e) {
             throw compilationException(e.compilationError)
         }
@@ -120,7 +122,7 @@ class GroovyPlugin extends PlayPlugin {
     /**
      * Update Play internal ApplicationClasses
      */
-    def updateInternalApplicationClasses(CompilationResult result) {
+    def updateInternalApplicationClasses(result, update = false) {
 
         def sigChanged = false
         def toReload = []
@@ -146,11 +148,12 @@ class GroovyPlugin extends PlayPlugin {
 //            toReload << new ClassDefinition(appClass.javaClass, appClass.enhancedByteCode)
         }
 
-        if (sigChanged) {
+        if (update && sigChanged) {
+            println "SIG CHANGE"
             throw new RuntimeException("Signature change !");
         }
 
-        if (toReload) {
+        if (update && toReload) {
             Cache.clear();
             if (HotswapAgent.enabled) {
                 try {
@@ -234,13 +237,12 @@ class GroovyPlugin extends PlayPlugin {
             return result
         }
 
-        return null
+        return new CompilationResult(Collections.emptyList(), Collections.emptyList())
     }
 
     def updateJava() {
         def compiled = []
         def modified = Play.@classes.all().grep({it.timestamp < it.javaFile.lastModified()})
-        modified.addAll(Play.pluginCollection.onClassesChange(modified))
         modified.each {
             it.refresh()
             if (it.compile()) {

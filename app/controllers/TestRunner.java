@@ -3,17 +3,21 @@ package controllers;
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.Class;
+import java.lang.String;
 import java.util.*;
 
 import play.Logger;
 import play.Play;
 import play.cache.Cache;
+import play.classloading.ApplicationClasses;
 import play.libs.IO;
 import play.libs.Mail;
 import play.mvc.*;
 import play.templates.Template;
 import play.templates.TemplateLoader;
 import play.test.*;
+import play.test.GebTest;
 import play.vfs.*;
 
 /**
@@ -44,6 +48,10 @@ public class TestRunner extends Controller {
 		for(String c : TestEngine.allSeleniumTests()) {
 			p.println(c);
 		}
+
+        for(ApplicationClasses.ApplicationClass c : Play.classes.getAssignableClasses(GebTest.class)) {
+            p.println(c.name);
+        }
 		renderText(list);
 	}
 
