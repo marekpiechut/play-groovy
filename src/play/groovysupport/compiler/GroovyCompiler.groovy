@@ -17,6 +17,7 @@ import play.Logger
 import play.Play
 
 import static org.codehaus.groovy.control.CompilationUnit.SourceUnitOperation
+import java.nio.charset.Charset
 
 class GroovyCompiler {
 
@@ -32,8 +33,8 @@ class GroovyCompiler {
         this.app = app
         this.output = output
         this.stubsFolder = stubsFolder
-        // TODO: set source encoding to utf8
         compilerConf = new CompilerConfiguration()
+        compilerConf.sourceEncoding = 'UTF-8'
         compilerConf.setTargetDirectory(new File(output, 'classes/'))
         compilerConf.setClasspathList(classpath)
         def sourceVersion = Play.configuration.get('java.source', '1.5')
@@ -122,15 +123,9 @@ class GroovyCompiler {
                         code: bytes, source: classNameToSource(cn))
             }
 
-            //TODO: Removed classes will not work this way if we only recompile changed classes
-            def removed = prevClasses.keySet().findAll { !(it in newClasses.keySet()) }
-                    .collect { cn ->
-                new ClassDefinition(name: cn, code: null, source: null)
-            }
-
             prevClasses = newClasses
 
-            return new CompilationResult(updated, removed)
+            return new CompilationResult(updated, Collections.emptyList())
 
         } catch (MultipleCompilationErrorsException e) {
 
