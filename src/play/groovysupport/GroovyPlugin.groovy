@@ -25,11 +25,14 @@ import spock.lang.Specification
 import java.lang.reflect.Modifier
 import java.security.ProtectionDomain
 import play.groovysupport.compiler.ClassDefinition
+import java.lang.reflect.Field
+import play.groovysupport.compiler.CallSiteRemover
 
 class GroovyPlugin extends PlayPlugin {
 
     def compiler
     def classloader
+    def clearStampsEnhancer
 
     @Override
     void onLoad() {
@@ -43,6 +46,7 @@ class GroovyPlugin extends PlayPlugin {
                 stubsFolder
         )
         classloader = new PlayGroovyClassLoader()
+        clearStampsEnhancer = new ClearGroovyStampsEnhancer()
 
         onConfigurationRead()
 
@@ -179,6 +183,15 @@ class GroovyPlugin extends PlayPlugin {
             if (!appClass.javaClass) {
                 appClass.javaClass = classloader.getClass(appClass.name, appClass.enhancedByteCode)
             }
+
+            if (it.source.name.endsWith('.groovy')) {
+                //Groovy classes need method call cache cleared on hotswap
+                CallSiteRemover.clearCallSite(appClass.javaClass)
+                try {
+                } catch (Exception ex) {
+                    throw new RuntimeException("Could not clear CallSite. Need reload!")
+                }
+            }
             toReload << new java.lang.instrument.ClassDefinition(appClass.javaClass, appClass.enhancedByteCode)
         }
 
@@ -286,4 +299,8 @@ class GroovyPlugin extends PlayPlugin {
         return new CompilationResult(compiled, Collections.emptyList())
     }
 
+    @Override
+    void enhance(ApplicationClass applicationClass) {
+        clearStampsEnhancer.enhanceThisClass(applicationClass)
+    }
 }

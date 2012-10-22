@@ -2,49 +2,49 @@
 
 <project name="groovy" default="build" basedir=".">
 
-	<target name="check" unless="play.path">
-		<fail message="Please specify Play framework path using -Dplay.path=/path/to/framework/home" />
-	</target>
+    <target name="check" unless="play.path">
+        <fail message="Please specify Play framework path using -Dplay.path=/path/to/framework/home"/>
+    </target>
 
-	<path id="project.classpath">
-		<fileset dir="lib">
-			<include name="*.jar"/>
-			<exclude name="play-groovy.jar"/>
-		</fileset>
-	</path>
+    <path id="project.classpath">
+        <fileset dir="lib">
+            <include name="*.jar"/>
+            <exclude name="play-groovy.jar"/>
+        </fileset>
+    </path>
 
-	<path id="play.classpath">
-		<pathelement path="${play.path}/framework/classes"/>
-		<fileset dir="${play.path}/framework/lib">
-			<include name="*.jar"/>
-			<exclude name="groovy-all-*.jar"/>
-		</fileset>
-		<fileset dir="${play.path}/framework">
-			<include name="*.jar"/>
-		</fileset>
-	</path>
+    <path id="play.classpath">
+        <pathelement path="${play.path}/framework/classes"/>
+        <fileset dir="${play.path}/framework/lib">
+            <include name="*.jar"/>
+            <exclude name="groovy-all-*.jar"/>
+        </fileset>
+        <fileset dir="${play.path}/framework">
+            <include name="*.jar"/>
+        </fileset>
+    </path>
 
     <taskdef name="groovyc" classname="org.codehaus.groovy.ant.Groovyc"
              classpathref="project.classpath"/>
 
 
-	<target name="build" depends="check">
-		<delete dir="tmp"/>
-		<delete file="lib/play-groovy.jar"/>
+    <target name="build" depends="check">
+        <delete dir="tmp"/>
+        <delete file="lib/play-groovy.jar"/>
 
-		<mkdir dir="tmp/classes"/>
+        <mkdir dir="tmp/classes"/>
 
-		<javac srcdir="src" destdir="tmp/classes" debug="true">
-			<classpath refid="play.classpath"/>
-			<classpath refid="project.classpath" />
-		</javac>
+        <javac srcdir="src" destdir="tmp/classes" debug="true" source="1.5" target="1.5">
+            <classpath refid="play.classpath"/>
+            <classpath refid="project.classpath"/>
+        </javac>
 
-		<copy todir="tmp/classes">
-			<fileset dir="src">
-				<include name="**/*.properties"/>
-				<include name="**/*.xml"/>
-				<include name="**/play.plugins"/>
-			</fileset>
+        <copy todir="tmp/classes">
+            <fileset dir="src">
+                <include name="**/*.properties"/>
+                <include name="**/*.xml"/>
+                <include name="**/play.plugins"/>
+            </fileset>
         </copy>
 
         <groovyc srcdir="src" destdir="tmp/classes">
@@ -54,12 +54,12 @@
         </groovyc>
 
         <jar destfile="lib/play-groovy.jar" basedir="tmp/classes">
-			<manifest>
-				<section name="Play">
-					<attribute name="Specification-Title" value="Groovy"/>
-				</section>
-			</manifest>
-		</jar>
-	</target>
+            <manifest>
+                <section name="Play">
+                    <attribute name="Specification-Title" value="Groovy"/>
+                </section>
+            </manifest>
+        </jar>
+    </target>
 
 </project>
