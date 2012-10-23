@@ -56,25 +56,6 @@ class GroovyCompiler {
         return classesToSources[name]
     }
 
-    static def fileToClassName(file) {
-        def src = file.absolutePath
-        // remove file extension
-        src = src.substring(0, src.lastIndexOf('.'))
-
-        //We have to remove classpath prefix from file name
-        //to make sure we can get fully qualified class name from it
-        for (jPath in Play.javaPath) {
-            def path = jPath.realFile.absolutePath;
-            if (src.startsWith(path)) {
-                src = src.substring(path.length() + 1)
-                break
-            }
-        }
-
-        def className = src.replace(File.separator, '.')
-        return className
-    }
-
     CompilationResult update(List sources) {
 
         // TODO: investigate if there's a better way than creating new

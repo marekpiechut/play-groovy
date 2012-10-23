@@ -1,38 +1,28 @@
 package play.groovysupport
 
 import groovy.io.FileType
-import org.junit.Assert
 import play.Logger
 import play.Play
 import play.PlayPlugin
 import play.cache.Cache
 import play.classloading.ApplicationClasses.ApplicationClass
+import play.classloading.ApplicationClassloader
 import play.classloading.ApplicationClassloaderState
 import play.classloading.BytecodeCache
 import play.classloading.HotswapAgent
 import play.exceptions.CompilationException
-import play.groovysupport.compiler.CompilationErrorException
-import play.groovysupport.compiler.CompilationResult
-import play.groovysupport.compiler.GroovyCompiler
 import play.test.BaseTest
-import play.test.FunctionalTest
-import play.test.GebTest
-import play.test.TestEngine
 import play.test.TestEngine.TestResults
 import play.vfs.VirtualFile
-import spock.lang.Specification
 
-import java.lang.reflect.Modifier
 import java.security.ProtectionDomain
-import play.groovysupport.compiler.ClassDefinition
-import java.lang.reflect.Field
-import play.groovysupport.compiler.CallSiteRemover
+
+import play.groovysupport.compiler.*
 
 class GroovyPlugin extends PlayPlugin {
 
     def compiler
-    def classloader
-    def clearStampsEnhancer
+    def clearStampsEnhancer = new ClearGroovyStampsEnhancer()
 
     @Override
     void onLoad() {
@@ -45,32 +35,8 @@ class GroovyPlugin extends PlayPlugin {
                 Play.tmpDir,
                 stubsFolder
         )
-        classloader = new PlayGroovyClassLoader()
-        clearStampsEnhancer = new ClearGroovyStampsEnhancer()
 
         onConfigurationRead()
-
-        /**
-         * The Play TestEngine only grabs classes which are assignable from
-         * org.junit.Assert -- Spock tests don't extend from JUnit, so we need
-         * to modify the TestEngine.allUnitTests method to ensure it picks up
-         * Specification classes too
-         */
-        TestEngine.metaClass.static.allUnitTests = {
-            Play.classloader.getAssignableClasses(Assert.class)
-                    .plus(Play.classloader.getAssignableClasses(Specification.class))
-                    .findAll {
-                !Modifier.isAbstract(it.getModifiers()) &&
-                        !FunctionalTest.class.isAssignableFrom(it) &&
-                        !GebTest.class.isAssignableFrom(it)
-            }
-        }
-
-        TestEngine.metaClass.static.allGebTests << {
-            Play.classloader.getAssignableClasses(GebTest.class)
-                    .findAll { !Modifier.isAbstract(it.getModifiers()) }
-        }
-
         Logger.info('Groovy support is active')
     }
 
@@ -115,25 +81,17 @@ class GroovyPlugin extends PlayPlugin {
         return true;
     }
 
-    class PlayGroovyClassLoader extends ClassLoader {
-        PlayGroovyClassLoader() {
-            super(Play.classloader)
-        }
-
-        def getClass(name, code) {
-            try {
-                return loadClass(name)
-            } catch (ClassNotFoundException ex) {
-                return super.defineClass(name, code)
-            }
+    def getClass(name, code) {
+        try {
+            def method = ApplicationClassloader.class.getMethod('loadClass', String.class)
+            method.accessible = true
+            return method.invoke(Play.classloader, name)
+        } catch (Exception ex) {
+            def method = ApplicationClassloader.class.getMethod('defineClass', String.class, byte[].class, Integer.TYPE, Integer.TYPE, ProtectionDomain.class)
+            method.accessible = true
+            return method.invoke(Play.classloader, name, code, 0, code.length, Play.classloader.protectionDomain)
         }
     }
-//    def defineClass(name, code) {
-//        def method = ClassLoader.class.getDeclaredMethod("defineClass", String.class, byte[].class, Integer.TYPE, Integer.TYPE, ProtectionDomain.class)
-//        method.accessible = true
-//        Class clazz = method.invoke(Play.classloader, name, code, 0, code.length, Play.classloader.protectionDomain)
-//        return clazz;
-//    }
 
     @Override
     boolean compileSources() {
@@ -176,12 +134,16 @@ class GroovyPlugin extends PlayPlugin {
             def oldSum = appClass.sigChecksum
             appClass.enhance()
             sigChanged = oldSum != appClass.sigChecksum
+            if (update && sigChanged) {
+                Logger.debug("Signature change, reload all classes")
+                throw new RuntimeException("Signature change !");
+            }
             //Make Play see (replace) current classes
             Play.@classes.add(appClass)
             //Need to cache byte code or you won't see any changes
             BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
             if (!appClass.javaClass) {
-                appClass.javaClass = classloader.getClass(appClass.name, appClass.enhancedByteCode)
+                appClass.javaClass = getClass(appClass.name, appClass.enhancedByteCode)
             }
 
             if (it.source.name.endsWith('.groovy')) {
@@ -193,11 +155,6 @@ class GroovyPlugin extends PlayPlugin {
                 }
             }
             toReload << new java.lang.instrument.ClassDefinition(appClass.javaClass, appClass.enhancedByteCode)
-        }
-
-        if (update && sigChanged) {
-            println "SIG CHANGE"
-            throw new RuntimeException("Signature change !");
         }
 
         if (update && toReload) {
@@ -260,9 +217,9 @@ class GroovyPlugin extends PlayPlugin {
             virtualFile.realFile.eachFileRecurse(FileType.FILES, { f ->
                 if (!filter || filter(f)) {
                     if (f.name.endsWith('.java')) {
-                        java << f
+                        java << [baseFolder: virtualFile.realFile, file: f]
                     } else if (f.name.endsWith('.groovy')) {
-                        groovy << f;
+                        groovy << [baseFolder: virtualFile.realFile, file: f];
                     }
                 }
             })
@@ -271,23 +228,28 @@ class GroovyPlugin extends PlayPlugin {
         return ['java': java, 'groovy': groovy]
     }
 
-    def toClassName(file, classRootFolder) {
-        def relativePath = file.absolutePath[classRootFolder.absolutePath.length() + 1..file.absolutePath.lastIndexOf('.') - 1]
-        def className = relativePath.replaceAll(/(\/|\\)/, '.')
-        return className;
-    }
-
     def updateGroovy(sources) {
-        Logger.debug("Compiling groovy classes: ${sources*.name}")
+        Logger.debug("Compiling groovy classes: ${sources*.file.name}")
         // sources have changed, so compile them
-        def result = compiler.update(sources)
+        def result = compiler.update(sources*.file)
         return result
     }
 
     def updateJava(sources) {
-        Logger.debug("Compiling java classes: ${sources*.name}")
+        Logger.debug("Compiling java classes: ${sources*.file.name}")
         def compiled = []
-        def modified = Play.@classes.all().grep({sources.contains(it.javaFile.realFile)})
+        def sourceFiles = sources*.file
+        def modified = new HashSet()
+        modified.addAll(Play.@classes.all().grep {sourceFiles.contains(it.javaFile.realFile)})
+        def loadedClasses = Play.@classes.all()*.javaFile.realFile
+        def newFiles = sources.grep {!loadedClasses.contains(it.file)}
+        newFiles.each {
+            if (!loadedClasses.contains(it.file)) {
+                def appClass = Play.@classes.getApplicationClass(toClassName(it.baseFolder, it.file))
+                modified << appClass
+            }
+        }
+
         modified.each {
             it.refresh()
             if (it.compile()) {
@@ -302,5 +264,13 @@ class GroovyPlugin extends PlayPlugin {
     @Override
     void enhance(ApplicationClass applicationClass) {
         clearStampsEnhancer.enhanceThisClass(applicationClass)
+//        testEngineEnhancer.enhanceThisClass(applicationClass)
+    }
+
+    def toClassName(baseFolder, file) {
+        def path = file.absolutePath
+        def name = path.substring(baseFolder.absolutePath.length() + 1, path.lastIndexOf('.'))
+        name = name.replaceAll('[/\\\\]', '.')
+        return name
     }
 }
