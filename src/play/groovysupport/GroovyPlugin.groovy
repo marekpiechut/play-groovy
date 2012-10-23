@@ -18,6 +18,8 @@ import play.vfs.VirtualFile
 import java.security.ProtectionDomain
 
 import play.groovysupport.compiler.*
+import play.test.SpockTest
+import play.test.GebTest
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -64,11 +66,11 @@ class GroovyPlugin extends PlayPlugin {
             Logger.debug("Updated sources: ${sources}")
             if (sources.groovy) {
                 def groovy = updateGroovy(sources.groovy)
-                updateInternalApplicationClasses(groovy, true)
+                updateInternalApplicationClasses(groovy, Play.started)
             }
             if (sources.java) {
                 def java = updateJava(sources.java)
-                updateInternalApplicationClasses(java, true)
+                updateInternalApplicationClasses(java, Play.started)
             }
 
             if (sources.java || sources.groovy) {
@@ -272,5 +274,13 @@ class GroovyPlugin extends PlayPlugin {
         def name = path.substring(baseFolder.absolutePath.length() + 1, path.lastIndexOf('.'))
         name = name.replaceAll('[/\\\\]', '.')
         return name
+    }
+
+    public Collection<Class> getUnitTests() {
+        return Play.@classes.getAssignableClasses(SpockTest.class)*.javaClass
+    }
+
+    public Collection<Class> getFunctionalTests() {
+        return Play.@classes.getAssignableClasses(GebTest.class)*.javaClass
     }
 }
