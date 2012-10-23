@@ -60,6 +60,13 @@ class GroovyPlugin extends PlayPlugin {
 
     @Override
     boolean detectClassesChange() {
+        if (!Play.started) {
+            //Don't try to compile all stuff as it will be compiled again in a second
+            //when Play is starting
+            Logger.debug("Play not started yet. Ignoring detect changes request.")
+            return true;
+        }
+        
         Logger.debug("Updating changed classes")
         try {
             def sources = findSources(isChanged)
