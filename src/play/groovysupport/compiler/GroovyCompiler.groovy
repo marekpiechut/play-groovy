@@ -16,16 +16,14 @@ import static org.codehaus.groovy.control.CompilationUnit.SourceUnitOperation
 
 class GroovyCompiler {
 
-    def app
     def output
     def compilerConf
     def prevClasses = [:]
     def classesToSources = [:]
     def stubsFolder
 
-    def GroovyCompiler(File app, File libs, List classpath, File output, File stubsFolder) {
+    def GroovyCompiler(List classpath, File output, File stubsFolder) {
 
-        this.app = app
         this.output = output
         this.stubsFolder = stubsFolder
         compilerConf = new CompilerConfiguration()

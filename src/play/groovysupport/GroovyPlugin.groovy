@@ -30,9 +30,7 @@ class GroovyPlugin extends PlayPlugin {
     void onLoad() {
 
         def stubsFolder = new File(Play.tmpDir, 'groovy_stubs');
-        compiler = new GroovyCompiler(Play.applicationPath,
-                new File(Play.modules['groovy'].getRealFile(), 'lib'),
-                System.getProperty('java.class.path')
+        compiler = new GroovyCompiler(System.getProperty('java.class.path')
                         .split(System.getProperty('path.separator')) as List,
                 Play.tmpDir,
                 stubsFolder
@@ -66,7 +64,7 @@ class GroovyPlugin extends PlayPlugin {
             Logger.debug("Play not started yet. Ignoring detect changes request.")
             return true;
         }
-        
+
         Logger.debug("Updating changed classes")
         try {
             def sources = findSources(isChanged)
