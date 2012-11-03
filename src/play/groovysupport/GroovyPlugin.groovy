@@ -25,6 +25,7 @@ class GroovyPlugin extends PlayPlugin {
 
     def compiler
     def clearStampsEnhancer = new ClearGroovyStampsEnhancer()
+    def testRunnerEnhancer = new TestRunnerEnhancer()
 
     @Override
     void onLoad() {
@@ -271,7 +272,7 @@ class GroovyPlugin extends PlayPlugin {
     @Override
     void enhance(ApplicationClass applicationClass) {
         clearStampsEnhancer.enhanceThisClass(applicationClass)
-//        testEngineEnhancer.enhanceThisClass(applicationClass)
+        testRunnerEnhancer.enhanceThisClass(applicationClass)
     }
 
     def toClassName(baseFolder, file) {
