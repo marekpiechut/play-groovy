@@ -40,12 +40,48 @@ class TestRunnerEnhancer extends Enhancer {
         }
     '''
 
+    private static final String listMethodBody = '''
+        {
+            java.util.Comparator comparator = new play.groovysupport.ClassNameComparator();
+            java.io.StringWriter list = new java.io.StringWriter();
+            java.io.PrintWriter p = new java.io.PrintWriter(list);
+            p.println("---");
+            p.println(play.Play.getFile("test-result").getAbsolutePath());
+            p.println(play.mvc.Router.reverse(((play.vfs.VirtualFile)play.Play.modules.get("_testrunner"))
+                .child("/public/test-runner/selenium/TestRunner.html")));
+            java.util.List unitTests = play.test.TestEngine.allUnitTests();
+            unitTests.addAll(play.groovysupport.TestRunnerEnhancer.getGebTests());
+            java.util.Collections.sort(unitTests, comparator);
+            for (java.util.Iterator iterator = unitTests.iterator(); iterator.hasNext(); ) {
+                Class c = (Class) iterator.next();
+                p.println(c.getName() + ".class");
+            }
+
+            java.util.List funcTests = play.test.TestEngine.allFunctionalTests();
+            funcTests.addAll(play.groovysupport.TestRunnerEnhancer.getSpockTests());
+            java.util.Collections.sort(funcTests, comparator);
+            for (java.util.Iterator iterator = funcTests.iterator(); iterator.hasNext(); ) {
+                Class c = (Class) iterator.next();
+                p.println(c.getName() + ".class");
+            }
+
+            java.util.List seleniumTest = play.test.TestEngine.allSeleniumTests();
+            for (java.util.Iterator iterator = seleniumTest.iterator(); iterator.hasNext(); ) {
+                String c = (String) iterator.next();
+                p.println(c);
+            }
+            renderText(list);
+        }
+    '''
+
     @Override
     void enhanceThisClass(ApplicationClass appClass) {
         if (shouldEnhance(appClass)) {
             def cc = makeClass(appClass);
-            def method = cc.getDeclaredMethod('index')
-            method.setBody(indexMethodBody)
+            def indexMethod = cc.getDeclaredMethod('index')
+            indexMethod.setBody(indexMethodBody)
+            def listMethod = cc.getDeclaredMethod('list')
+            listMethod.setBody(listMethodBody)
             appClass.javaClass = cc.toClass()
             appClass.enhancedByteCode == cc.toBytecode()
             cc.defrost()
