@@ -20,6 +20,7 @@ import java.security.ProtectionDomain
 import play.groovysupport.compiler.*
 import play.test.SpockTest
 import play.test.GebTest
+import java.lang.reflect.Modifier
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -283,10 +284,10 @@ class GroovyPlugin extends PlayPlugin {
     }
 
     public Collection<Class> getUnitTests() {
-        return Play.@classes.getAssignableClasses(SpockTest.class)*.javaClass
+        return TestRunnerEnhancer.spockTests
     }
 
     public Collection<Class> getFunctionalTests() {
-        return Play.@classes.getAssignableClasses(GebTest.class)*.javaClass
+        return TestRunnerEnhancer.gebTests
     }
 }
