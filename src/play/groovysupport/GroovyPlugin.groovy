@@ -33,7 +33,7 @@ class GroovyPlugin extends PlayPlugin {
 
         def stubsFolder = new File(Play.tmpDir, 'groovy_stubs');
         compiler = new GroovyCompiler(System.getProperty('java.class.path')
-                        .split(System.getProperty('path.separator')) as List,
+                .split(System.getProperty('path.separator')) as List,
                 Play.tmpDir,
                 stubsFolder
         )
@@ -48,7 +48,7 @@ class GroovyPlugin extends PlayPlugin {
         null
     }
 
-    def isChanged = {file ->
+    def isChanged = { file ->
         for (appClass in Play.@classes.all()) {
             if (appClass.javaFile.realFile == file) {
                 return (appClass.timestamp < file.lastModified())
@@ -141,9 +141,10 @@ class GroovyPlugin extends PlayPlugin {
             appClass.timestamp = it.source.lastModified()
             //Groovy classes also need Play byte code enhances
             def oldSum = appClass.sigChecksum
+            def newClass = !Play.@classes.hasClass(appClass.name)
             appClass.enhance()
             sigChanged = oldSum != appClass.sigChecksum
-            if (update && sigChanged) {
+            if (!newClass && update && sigChanged) {
                 Logger.debug("Signature change, reload all classes")
                 throw new RuntimeException("Signature change !");
             }
@@ -163,7 +164,10 @@ class GroovyPlugin extends PlayPlugin {
                     throw new RuntimeException("Could not clear CallSite. Need reload!")
                 }
             }
-            toReload << new java.lang.instrument.ClassDefinition(appClass.javaClass, appClass.enhancedByteCode)
+
+            if (!newClass) {
+                toReload << new java.lang.instrument.ClassDefinition(appClass.javaClass, appClass.enhancedByteCode)
+            }
         }
 
         if (update && toReload) {
@@ -222,7 +226,7 @@ class GroovyPlugin extends PlayPlugin {
     def findSources(filter = null) {
         def java = []
         def groovy = []
-        Play.javaPath.grep({it.exists()}).each {virtualFile ->
+        Play.javaPath.grep({ it.exists() }).each { virtualFile ->
             virtualFile.realFile.eachFileRecurse(FileType.FILES, { f ->
                 if (!filter || filter(f)) {
                     if (f.name.endsWith('.java')) {
@@ -249,9 +253,9 @@ class GroovyPlugin extends PlayPlugin {
         def compiled = []
         def sourceFiles = sources*.file
         def modified = new HashSet()
-        modified.addAll(Play.@classes.all().grep {sourceFiles.contains(it.javaFile.realFile)})
+        modified.addAll(Play.@classes.all().grep { sourceFiles.contains(it.javaFile.realFile) })
         def loadedClasses = Play.@classes.all()*.javaFile.realFile
-        def newFiles = sources.grep {!loadedClasses.contains(it.file)}
+        def newFiles = sources.grep { !loadedClasses.contains(it.file) }
         newFiles.each {
             if (!loadedClasses.contains(it.file)) {
                 def appClass = Play.@classes.getApplicationClass(toClassName(it.baseFolder, it.file))
@@ -273,7 +277,7 @@ class GroovyPlugin extends PlayPlugin {
     @Override
     void enhance(ApplicationClass applicationClass) {
         clearStampsEnhancer.enhanceThisClass(applicationClass)
-        testRunnerEnhancer.enhanceThisClass(applicationClass)
+//        testRunnerEnhancer.enhanceThisClass(applicationClass)
     }
 
     def toClassName(baseFolder, file) {

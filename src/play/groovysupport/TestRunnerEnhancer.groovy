@@ -1,15 +1,13 @@
 package play.groovysupport
 
-import play.classloading.enhancers.Enhancer
-import play.classloading.ApplicationClasses.ApplicationClass
-
 import javassist.CtClass
-import javassist.bytecode.Descriptor
-import javassist.CtNewMethod
+import javassist.CtField
 import play.Play
-import play.test.SpockTest
-import java.lang.reflect.Modifier
+import play.classloading.ApplicationClasses.ApplicationClass
+import play.classloading.enhancers.Enhancer
 import play.test.GebTest
+import play.test.SpockTest
+import javassist.Modifier
 
 /**
  * Enhance TestEngine class to find and show Geg and Spock tests
@@ -24,11 +22,11 @@ class TestRunnerEnhancer extends Enhancer {
             java.util.Comparator comparator = new play.groovysupport.ClassNameComparator();
 
             java.util.List unitTests = play.test.TestEngine.allUnitTests();
-            unitTests.addAll(play.groovysupport.TestRunnerEnhancer.getGebTests());
+            unitTests.addAll(play.groovysupport.TestRunnerEnhancer.getSpockTests());
             java.util.Collections.sort(unitTests, comparator);
 
             java.util.List functionalTests = play.test.TestEngine.allFunctionalTests();
-            unitTests.addAll(play.groovysupport.TestRunnerEnhancer.getSpockTests());
+            unitTests.addAll(play.groovysupport.TestRunnerEnhancer.getGebTests());
             java.util.Collections.sort(functionalTests, comparator);
 
             java.util.List seleniumTests = play.test.TestEngine.allSeleniumTests();
@@ -50,7 +48,7 @@ class TestRunnerEnhancer extends Enhancer {
             p.println(play.mvc.Router.reverse(((play.vfs.VirtualFile)play.Play.modules.get("_testrunner"))
                 .child("/public/test-runner/selenium/TestRunner.html")));
             java.util.List unitTests = play.test.TestEngine.allUnitTests();
-            unitTests.addAll(play.groovysupport.TestRunnerEnhancer.getGebTests());
+            unitTests.addAll(play.groovysupport.TestRunnerEnhancer.getSpockTests());
             java.util.Collections.sort(unitTests, comparator);
             for (java.util.Iterator iterator = unitTests.iterator(); iterator.hasNext(); ) {
                 Class c = (Class) iterator.next();
@@ -58,7 +56,7 @@ class TestRunnerEnhancer extends Enhancer {
             }
 
             java.util.List funcTests = play.test.TestEngine.allFunctionalTests();
-            funcTests.addAll(play.groovysupport.TestRunnerEnhancer.getSpockTests());
+            funcTests.addAll(play.groovysupport.TestRunnerEnhancer.getGebTests());
             java.util.Collections.sort(funcTests, comparator);
             for (java.util.Iterator iterator = funcTests.iterator(); iterator.hasNext(); ) {
                 Class c = (Class) iterator.next();
@@ -82,7 +80,9 @@ class TestRunnerEnhancer extends Enhancer {
             indexMethod.setBody(indexMethodBody)
             def listMethod = cc.getDeclaredMethod('list')
             listMethod.setBody(listMethodBody)
-            appClass.javaClass = cc.toClass()
+            if (!appClass.javaClass) {
+                appClass.javaClass = cc.toClass()
+            }
             appClass.enhancedByteCode == cc.toBytecode()
             cc.defrost()
         }
@@ -94,7 +94,7 @@ class TestRunnerEnhancer extends Enhancer {
 
     public static List<Class> getSpockTests() {
         def spockClasses = Play.classloader.getAssignableClasses(SpockTest.class)
-        spockClasses = spockClasses.grep {!Modifier.isAbstract(it.getModifiers())}
+        spockClasses = spockClasses.grep {!Modifier.isAbstract(it.getModifiers()) && !it.isAssignableFrom(GebTest.class)}
         return spockClasses
     }
 
