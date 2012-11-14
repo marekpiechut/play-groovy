@@ -110,8 +110,7 @@ class GroovyCompiler {
                     println 'This is really bad and should not have happened'
                     e.printStackTrace()
                     System.exit(1)
-                }
-                else {
+                } else if (errorMessage instanceof SyntaxErrorMessage) {
                     errorMessage = errorMessage as SyntaxErrorMessage
                     def syntaxException = errorMessage.getCause()
 
@@ -124,12 +123,13 @@ class GroovyCompiler {
                     )
 
                     throw new CompilationErrorException(compilationError)
+                } else {
+                    throw errorMessage.getCause()
                 }
-
             }
 
             throw new CompilationErrorException(
-                    new CompilationError(message: 'Could not get compilation error')
+                    new CompilationError(e)
             )
         }
     }
@@ -159,7 +159,7 @@ class GroovyCompiler {
                     .collect {
                 it.getPackageName()[0..it.getPackageName().length() - 2]
             }
-                    .findAll {
+            .findAll {
                 it in playStaticStarImports
             }
 
