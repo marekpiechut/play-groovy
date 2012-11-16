@@ -20,17 +20,17 @@ Installation
 ------------
 Add repository and dependency to your dependencies.yml:
 
-require:
-    - play
-    - marekpiechut -> groovy 0.1.99
+	require:
+	    - play
+    	- marekpiechut -> groovy 0.1.99
 
-repositories:
-    - marekpiechut:
-        type:       http
-        artifact:   http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].zip
-        descriptor: http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].yml
-        contains:
-            - marekpiechut -> *
+	repositories:
+	    - marekpiechut:
+	        type:       http
+	        artifact:   http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].zip
+	        descriptor: http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].yml
+	        contains:
+	            - marekpiechut -> *
 
 Usage
 -----
