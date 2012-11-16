@@ -1,4 +1,4 @@
-self: play -> groovy 0.1
+self: marekpiechut -> groovy 0.1.99
 
 require:
     - play

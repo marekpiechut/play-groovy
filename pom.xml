@@ -31,7 +31,7 @@ under the License.
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.marekpiechut.play.modules.Groovy</groupId>
     <artifactId>play-groovy</artifactId>
-    <version>0.1</version>
+    <version>0.1.99</version>
     <packaging>jar</packaging>
 
     <name>Play! Groovy Module</name>
