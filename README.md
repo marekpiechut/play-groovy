@@ -5,9 +5,11 @@ This is a Groovy plugin for the Play Framework -- it'll allow you to write your 
 
 Done
 ----
-* Groovy (1.8.3) compilation (with recompile on reload)
- * can cross-compile java and groovy sources
- * can put multiple classes in files (classes not tied to filenames)
+* Groovy (1.8.8) compilation (with recompile on reload)
+ * Hotswap supported - will reload whole application only if method signature changed
+ * Uses Java compiler for Java files and Groovy compiler for groovy files
+ * Full cross compilation support (Java sees Groovy classes and vice-versa)
+ * Can put multiple Groovy classes in files (classes not tied to filenames)
 * Spock tests
  * Treated as normal unit tests but with nicer syntax and better error output
 * Geb tests (unfinished)
@@ -16,13 +18,19 @@ Done
 
 Installation
 ------------
-This module isn't on the Play repo yet, so if you want to use it you'll need to install it manually.
+Add repository and dependency to your dependencies.yml:
 
-* clone the repository and run **play build-module** inside it
-* this will give you a *dist/play-groovy-0.1.zip*
-* unzip this into *{play-home}/modules/groovy-0.1*
-* create a new play groovy app: **play new groovyapp --with groovy** and wait for the dependencies to download
-* enjoy your play groovy application! go forth and find some bugs
+	require:
+	    - play
+    	- marekpiechut -> groovy 0.1.99
+
+	repositories:
+	    - marekpiechut:
+	        type:       http
+	        artifact:   http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].zip
+	        descriptor: http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].yml
+	        contains:
+	            - marekpiechut -> *
 
 Usage
 -----
@@ -95,6 +103,9 @@ Todo
  * doesn't support cookies
  * doesn't return js/css yet, or get content types
 * IDE support (might work now, I haven't tried yet)
+* Make package smaller (libraries should be downloaded by play, not packed up in zip)
+* Geb support for real browsers (firefox/chrome/IE driver)
+* Integrate Spring-reload to have full class reload without need to restart app (if SpringSource allows to use it)
 
 Future
 ------
