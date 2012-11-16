@@ -1,13 +1,11 @@
 package play.groovysupport
 
-import javassist.CtClass
-import javassist.CtField
+import javassist.Modifier
 import play.Play
 import play.classloading.ApplicationClasses.ApplicationClass
 import play.classloading.enhancers.Enhancer
 import play.test.GebTest
 import play.test.SpockTest
-import javassist.Modifier
 
 /**
  * Enhance TestEngine class to find and show Geg and Spock tests
@@ -80,10 +78,7 @@ class TestRunnerEnhancer extends Enhancer {
             indexMethod.setBody(indexMethodBody)
             def listMethod = cc.getDeclaredMethod('list')
             listMethod.setBody(listMethodBody)
-            if (!appClass.javaClass) {
-                appClass.javaClass = cc.toClass()
-            }
-            appClass.enhancedByteCode == cc.toBytecode()
+            appClass.enhancedByteCode = cc.toBytecode()
             cc.defrost()
         }
     }
