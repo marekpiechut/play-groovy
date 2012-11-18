@@ -2,10 +2,43 @@
 
 <project name="groovy" default="build" basedir=".">
 
+	<property name="groovy.version" value="2.0.5"/>
+	<property name="play.version" value="1.2.5"/>
+	<property name="module.version" value="0.2"/>
+
+	<target name="package">
+		<condition property="groovy.classifier.int" value="-${groovy.classifier}" else="" >
+			<isset property="groovy.classifier"/>
+		</condition>
+		<antcall target="set-groovy" inheritAll="true" inheritRefs="true"/>
+		<antcall target="build-module"/>
+		<copy file="conf/dependencies.yml" tofile="dist/groovy-${module.version}.yml"/>
+	</target>
+	
+	<target name="build-module">
+		<exec executable="cmd">
+			<arg value="/c"/>
+			<arg value="play"/>
+			<arg value="build-module"/>
+			<arg value="--require"/>
+			<arg value="${play.version}"/>
+		</exec>
+	</target>
+
+	
     <target name="check" unless="play.path">
         <fail message="Please specify Play framework path using -Dplay.path=/path/to/framework/home"/>
     </target>
-
+	
+	<target name="set-groovy">
+		<delete file="lib/groovy-${groovy.version}.jar"/>
+		<delete file="lib/groovy-${groovy.version}-indy.jar" />
+		<copy tofile="conf/dependencies.yml" file="conf/dependencies-groovy${groovy.classifier.int}.yml" overwrite="true"/>
+		
+		<get src="http://repo1.maven.org/maven2/org/codehaus/groovy/groovy/${groovy.version}/groovy-${groovy.version}${groovy.classifier.int}.jar" 
+		dest="lib/groovy-${groovy.version}${groovy.classifier.int}.jar" verbose="true" usetimestamp="true"/>
+	</target>
+	
     <path id="project.classpath">
         <fileset dir="lib">
             <include name="*.jar"/>
@@ -24,11 +57,9 @@
         </fileset>
     </path>
 
-    <taskdef name="groovyc" classname="org.codehaus.groovy.ant.Groovyc"
-             classpathref="project.classpath"/>
-
-
     <target name="build" depends="check">
+		<taskdef name="groovyc" classname="org.codehaus.groovy.ant.Groovyc"
+             classpathref="project.classpath"/>
         <delete dir="tmp"/>
         <delete file="lib/play-groovy.jar"/>
 
