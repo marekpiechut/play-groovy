@@ -1,6 +1,7 @@
 package play.groovysupport
 
 import groovy.io.FileType
+import groovy.time.TimeDuration
 import javassist.CtClass
 import play.Logger
 import play.Play
@@ -107,8 +108,11 @@ class GroovyPlugin extends PlayPlugin {
     @Override
     boolean compileSources() {
         Logger.debug("Recompiling all sources")
+        Logger.debug "START FULL COMPILATION"
+        def start = System.currentTimeMillis()
         try {
             def sources = findSources()
+
             def groovy = updateGroovy(sources.groovy)
             updateInternalApplicationClasses(groovy, false)
             def java = updateJava(sources.java)
@@ -117,6 +121,7 @@ class GroovyPlugin extends PlayPlugin {
             throw compilationException(e.compilationError)
         }
 
+        Logger.debug "FULL COMPILATION TOOK: ${(System.currentTimeMillis() - start) / 1000}"
         return true
     }
 
@@ -133,29 +138,39 @@ class GroovyPlugin extends PlayPlugin {
             if (!appClass) appClass = new ApplicationClass(it.name)
             appClass.javaFile = VirtualFile.open(it.source)
             appClass.javaByteCode = it.code
-            appClass.enhancedByteCode = it.code
+            def cachedBytecode = BytecodeCache.getBytecode(it.name, it.source.text)
+
+            def newClass = !Play.@classes.hasClass(appClass.name)
+
+            if (cachedBytecode) {
+                appClass.enhancedByteCode = cachedBytecode
+            } else {
+                appClass.enhancedByteCode = it.code
+
+                //Groovy classes also need Play byte code enhances
+                def oldSum = appClass.sigChecksum
+
+                appClass.enhance()
+                sigChanged = oldSum != appClass.sigChecksum
+                if (!newClass && update && sigChanged) {
+                    Logger.debug("Signature change, reload all classes")
+                    throw new RuntimeException("Signature change !");
+                }
+
+                BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
+            }
+
             appClass.compiled = true;
             appClass.javaSource = it.source.text
-            //We can safely use modification stamp of a stub, it will be more recent then groovy file timestamp
             appClass.timestamp = it.source.lastModified()
-            //Groovy classes also need Play byte code enhances
-            def oldSum = appClass.sigChecksum
-            def newClass = !Play.@classes.hasClass(appClass.name)
-            appClass.enhance()
-            sigChanged = oldSum != appClass.sigChecksum
-            if (!newClass && update && sigChanged) {
-                Logger.debug("Signature change, reload all classes")
-                throw new RuntimeException("Signature change !");
-            }
             //Make Play see (replace) current classes
             Play.@classes.add(appClass)
             //Need to cache byte code or you won't see any changes
-            BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
             if (!appClass.javaClass) {
                 appClass.javaClass = getClass(appClass.name, appClass.enhancedByteCode)
             }
 
-            if (it.source.name.endsWith('.groovy')) {
+            if (!newClass && it.source.name.endsWith('.groovy')) {
                 //Groovy classes need method call cache cleared on hotswap
                 CallSiteRemover.clearCallSite(appClass.javaClass)
                 try {

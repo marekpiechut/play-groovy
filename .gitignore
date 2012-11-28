@@ -13,3 +13,6 @@ target
 .idea
 precompiled
 *.iml
+/lib/
+/samples/blog/lib/
+/samples/blog/modules/

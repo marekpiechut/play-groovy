@@ -29,14 +29,27 @@ under the License.
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.github.marekpiechut.play.modules.Groovy</groupId>
+    <groupId>com.github.marekpiechut.play.modules</groupId>
     <artifactId>play-groovy</artifactId>
-    <version>0.1.99</version>
+    <version>0.2</version>
     <packaging>jar</packaging>
 
     <name>Play! Groovy Module</name>
     <description>Play! Groovy Module</description>
     <url>http://github.com/marekpiechut/play-groovy</url>
+
+    <distributionManagement>
+        <repository>
+            <id>mvn.tt.com.pl</id>
+            <name>Internal TT Repositories</name>
+            <url>https://mvn.tt.com.pl/artifactory/internal</url>
+        </repository>
+        <snapshotRepository>
+            <id>mvn.tt.com.pl</id>
+            <name>Internal TT Repositories - Snapshots</name>
+            <url>https://mvn.tt.com.pl/artifactory/internal</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <repositories>
         <repository>
