@@ -1,6 +1,5 @@
 package play.groovysupport.compiler
 
-import groovy.transform.Immutable
 import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.control.CompilationFailedException
 import org.codehaus.groovy.control.CompilerConfiguration
@@ -9,7 +8,6 @@ import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.messages.SimpleMessage
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage
 import org.codehaus.groovy.tools.javac.JavaAwareCompilationUnit
-import org.eclipse.jdt.internal.compiler.CompilationResult
 import play.Logger
 import play.Play
 
@@ -37,13 +35,6 @@ class GroovyCompiler {
         def compilerOptions = ['source': sourceVersion, 'target': sourceVersion, 'keepStubs': true, 'stubDir': stubsFolder]
         compilerConf.setDebug(true)
         compilerConf.setJointCompilationOptions(compilerOptions)
-    }
-
-    File classNameToFile(className) {
-        def classFile = new File(output, 'classes/' + className.replace('.', '/') + '.class')
-        return classFile.exists() ? classFile : null
-        // TODO: instead of null, throw an exception? What to do if the class
-        // source can't be found?
     }
 
     def classNameToSource(name) {
