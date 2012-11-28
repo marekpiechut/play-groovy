@@ -128,11 +128,11 @@ class GroovyPlugin extends PlayPlugin {
     /**
      * Update Play internal ApplicationClasses
      */
-    def updateInternalApplicationClasses(result, update = false) {
-        Logger.debug("Updating internal Play classes: ${result.updatedClasses*.name}")
+    def updateInternalApplicationClasses(updatedClasses, update = false) {
+        Logger.debug("Updating internal Play classes: ${updatedClasses*.name}")
 
         def toReload = []
-        result.updatedClasses.each {
+        updatedClasses.each {
             boolean sigChanged
             def appClass = Play.@classes.getApplicationClass(it.name)
             if (!appClass) appClass = new ApplicationClass(it.name)
@@ -285,7 +285,7 @@ class GroovyPlugin extends PlayPlugin {
                 Play.@classes.remove(it)
             }
         }
-        return new CompilationResult(compiled, Collections.emptyList())
+        return compiled
     }
 
     @Override

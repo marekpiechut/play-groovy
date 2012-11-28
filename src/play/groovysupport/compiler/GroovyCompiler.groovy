@@ -9,6 +9,7 @@ import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.messages.SimpleMessage
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage
 import org.codehaus.groovy.tools.javac.JavaAwareCompilationUnit
+import org.eclipse.jdt.internal.compiler.CompilationResult
 import play.Logger
 import play.Play
 
@@ -54,7 +55,7 @@ class GroovyCompiler {
         return classesToSources[name]
     }
 
-    CompilationResult update(List sources) {
+    def update(List sources) {
 
         // TODO: investigate if there's a better way than creating new
         // CompilationUnit instances every time...
@@ -97,7 +98,7 @@ class GroovyCompiler {
 
             prevClasses = newClasses
 
-            return new CompilationResult(updated, Collections.emptyList())
+            return updated
 
         } catch (MultipleCompilationErrorsException e) {
 
@@ -179,11 +180,6 @@ class ClassDefinition {
     String toString() {
         "ClassDefinition(name: ${name}, source: ${source})"
     }
-}
-
-@Immutable class CompilationResult {
-
-    List<ClassDefinition> updatedClasses, removedClasses
 }
 
 class CompilationError {
