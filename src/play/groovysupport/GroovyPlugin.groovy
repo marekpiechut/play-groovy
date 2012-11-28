@@ -1,8 +1,6 @@
 package play.groovysupport
 
 import groovy.io.FileType
-import groovy.time.TimeDuration
-import javassist.CtClass
 import play.Logger
 import play.Play
 import play.PlayPlugin
@@ -13,16 +11,15 @@ import play.classloading.ApplicationClassloaderState
 import play.classloading.BytecodeCache
 import play.classloading.HotswapAgent
 import play.exceptions.CompilationException
+import play.groovysupport.compiler.CallSiteRemover
+import play.groovysupport.compiler.ClassDefinition
+import play.groovysupport.compiler.CompilationErrorException
+import play.groovysupport.compiler.GroovyCompiler
 import play.test.BaseTest
 import play.test.TestEngine.TestResults
 import play.vfs.VirtualFile
 
 import java.security.ProtectionDomain
-
-import play.groovysupport.compiler.*
-import play.test.SpockTest
-import play.test.GebTest
-import java.lang.reflect.Modifier
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -40,14 +37,7 @@ class GroovyPlugin extends PlayPlugin {
                 stubsFolder
         )
 
-        onConfigurationRead()
         Logger.info('Groovy support is active')
-    }
-
-    @Override
-    TestResults runTest(Class<BaseTest> testClass) {
-
-        null
     }
 
     def isChanged = { file ->
@@ -75,11 +65,13 @@ class GroovyPlugin extends PlayPlugin {
             Logger.debug("Updated sources: ${sources}")
             if (sources.groovy) {
                 def groovy = updateGroovy(sources.groovy)
-                updateInternalApplicationClasses(groovy, Play.started)
+                def toReload = updateInternalApplicationClasses(groovy)
+                hotswapClasses(toReload)
             }
             if (sources.java) {
                 def java = updateJava(sources.java)
-                updateInternalApplicationClasses(java, Play.started)
+                def toReload = updateInternalApplicationClasses(java)
+                hotswapClasses(toReload)
             }
 
             if (sources.java || sources.groovy) {
@@ -114,9 +106,9 @@ class GroovyPlugin extends PlayPlugin {
             def sources = findSources()
 
             def groovy = updateGroovy(sources.groovy)
-            updateInternalApplicationClasses(groovy, false)
+            updateInternalApplicationClasses(groovy)
             def java = updateJava(sources.java)
-            updateInternalApplicationClasses(java, false)
+            updateInternalApplicationClasses(java)
         } catch (CompilationErrorException e) {
             throw compilationException(e.compilationError)
         }
@@ -128,7 +120,7 @@ class GroovyPlugin extends PlayPlugin {
     /**
      * Update Play internal ApplicationClasses
      */
-    def updateInternalApplicationClasses(updatedClasses, update = false) {
+    def updateInternalApplicationClasses(updatedClasses) {
         Logger.debug("Updating internal Play classes: ${updatedClasses*.name}")
 
         def toReload = []
@@ -152,10 +144,6 @@ class GroovyPlugin extends PlayPlugin {
 
                 appClass.enhance()
                 sigChanged = oldSum != appClass.sigChecksum
-                if (!newClass && update && sigChanged) {
-                    Logger.debug("Signature change, reload all classes")
-                    throw new RuntimeException("Signature change !");
-                }
 
                 BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
             }
@@ -172,8 +160,8 @@ class GroovyPlugin extends PlayPlugin {
 
             if (!newClass && it.source.name.endsWith('.groovy')) {
                 //Groovy classes need method call cache cleared on hotswap
-                CallSiteRemover.clearCallSite(appClass.javaClass)
                 try {
+                    CallSiteRemover.clearCallSite(appClass.javaClass)
                 } catch (Exception ex) {
                     throw new RuntimeException("Could not clear CallSite. Need reload!")
                 }
@@ -184,17 +172,19 @@ class GroovyPlugin extends PlayPlugin {
             }
         }
 
-        if (update && toReload) {
+        return toReload
+    }
+
+    def hotswapClasses(toReload) {
+        if (HotswapAgent.enabled && toReload) {
             Cache.clear();
-            if (HotswapAgent.enabled) {
-                try {
-                    HotswapAgent.reload(toReload as java.lang.instrument.ClassDefinition[])
-                } catch (Throwable e) {
-                    throw new RuntimeException("Need reload")
-                }
-            } else {
+            try {
+                HotswapAgent.reload(toReload as java.lang.instrument.ClassDefinition[])
+            } catch (Throwable e) {
                 throw new RuntimeException("Need reload")
             }
+        } else {
+            throw new RuntimeException("Need reload")
         }
     }
 
