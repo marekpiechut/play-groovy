@@ -20,6 +20,7 @@ import play.test.TestEngine.TestResults
 import play.vfs.VirtualFile
 
 import java.security.ProtectionDomain
+import play.Play.Mode
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -38,6 +39,20 @@ class GroovyPlugin extends PlayPlugin {
         )
 
         Logger.info('Groovy support is active')
+    }
+
+    @Override
+    void onApplicationReady() {
+        if (Play.mode == Mode.DEV) {
+            boolean compile = Play.configuration.getProperty("play.groovy.compileOnInit", "false").toBoolean()
+            if (compile) {
+                //Need to start application to ensure all classes are compiled
+                //before first request is done and tries to use stock Play
+                //compiler instead of plugins (bug in Play) that won't find groovy classes
+                Logger.info("Starting application (set play.groovy.compileOnInit=false in application.conf to disable")
+                Play.start()
+            }
+        }
     }
 
     def isChanged = { file ->

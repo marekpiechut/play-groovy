@@ -22,7 +22,7 @@ Add repository and dependency to your dependencies.yml:
 
 	require:
 	    - play
-    	- marekpiechut -> groovy 0.1.99
+    	- marekpiechut -> groovy 0.2.1
 
 	repositories:
 	    - marekpiechut:

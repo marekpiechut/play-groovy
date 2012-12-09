@@ -50,7 +50,7 @@ class GroovyCompiler {
 
         // TODO: investigate if there's a better way than creating new
         // CompilationUnit instances every time...
-        def cu = new JavaAwareCompilationUnit(compilerConf, new GroovyClassLoader())
+        def cu = new JavaAwareCompilationUnit(compilerConf, new GroovyClassLoader(Play.classloader))
 
         // reset classesToSources map
         classesToSources = [:]
