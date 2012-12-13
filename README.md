@@ -3,6 +3,18 @@ Groovy Plugin for Play Framework
 
 This is a Groovy plugin for the Play Framework -- it'll allow you to write your Play code in Groovy rather than Java (or Scala) and test it with Spock and Geb.
 
+NOTICE
+-------
+If you are having some compilation isses on first application request in dev mode
+you can enable application startup immediately after initialization (in version 0.2.1). This will
+compile all sources before first request is executed. Issue is caused by standard Play code
+that doesn't use plugins to compile sources when template compilation needs to load uncompiled class.
+Add following lines to `application.conf` to enable it:
+
+	# Make sure Groovy compied all classes before first request is executed
+	play.groovy.compileOnInit=true
+	
+
 Done
 ----
 * Groovy (1.8.8) compilation (with recompile on reload)
