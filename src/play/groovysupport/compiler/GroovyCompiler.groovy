@@ -12,6 +12,7 @@ import play.Logger
 import play.Play
 
 import static org.codehaus.groovy.control.CompilationUnit.SourceUnitOperation
+import javax.annotation.processing.Processor
 
 class GroovyCompiler {
 
@@ -20,21 +21,36 @@ class GroovyCompiler {
     def prevClasses = [:]
     def classesToSources = [:]
     def stubsFolder
+    def groovyClassLoader
 
     def GroovyCompiler(List classpath, File output, File stubsFolder) {
 
         this.output = output
         this.stubsFolder = stubsFolder
+
         compilerConf = new CompilerConfiguration()
         compilerConf.sourceEncoding = 'UTF-8'
         compilerConf.recompileGroovySource = false
-        compilerConf.setTargetDirectory(new File(output, 'classes/'))
+
+        def targetDirectory = new File(output, 'classes/')
+        targetDirectory.mkdirs()
+        compilerConf.setTargetDirectory(targetDirectory)
+
         compilerConf.setClasspathList(classpath)
+
         def sourceVersion = Play.configuration.get('java.source', '1.5')
         Logger.debug("Compiling using ${sourceVersion} source/target level")
-        def compilerOptions = ['source': sourceVersion, 'target': sourceVersion, 'keepStubs': true, 'stubDir': stubsFolder]
+
         compilerConf.setDebug(true)
+
+        def processorsLoader = ServiceLoader.load(Processor.class, Play.class.classLoader)
+        def processors = processorsLoader.iterator()*.class.name.join(',')
+
+        def compilerOptions = ['source': sourceVersion, 'target': sourceVersion, 'keepStubs': true, 'stubDir': stubsFolder,
+                'namedValues': ['processor', processors] as String[]]
         compilerConf.setJointCompilationOptions(compilerOptions)
+
+        new GroovyClassLoader(Play.classloader, compilerConf)
     }
 
     def classNameToSource(name) {
@@ -50,7 +66,7 @@ class GroovyCompiler {
 
         // TODO: investigate if there's a better way than creating new
         // CompilationUnit instances every time...
-        def cu = new JavaAwareCompilationUnit(compilerConf, new GroovyClassLoader(Play.classloader))
+        def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
 
         // reset classesToSources map
         classesToSources = [:]

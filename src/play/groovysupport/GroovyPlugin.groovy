@@ -120,8 +120,12 @@ class GroovyPlugin extends PlayPlugin {
         try {
             def sources = findSources()
 
-            def groovy = updateGroovy(sources.groovy)
+            def allSources = new ArrayList(sources.java)
+            allSources.addAll(sources.groovy)
+
+            def groovy = updateGroovy(allSources)
             updateInternalApplicationClasses(groovy)
+
             def java = updateJava(sources.java)
             updateInternalApplicationClasses(java)
         } catch (CompilationErrorException e) {
