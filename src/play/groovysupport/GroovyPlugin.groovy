@@ -79,7 +79,11 @@ class GroovyPlugin extends PlayPlugin {
             def sources = findSources(isChanged)
             Logger.debug("Updated sources: ${sources}")
             if (sources.groovy) {
-                def groovy = updateGroovy(sources.groovy)
+                //Groovy compiler needs to have also java files to support cross compilation
+                //it will not compile them but needs to resolve classes there to compile Groovy code
+                def allSources = new ArrayList(sources.java)
+                allSources.addAll(sources.groovy)
+                def groovy = updateGroovy(allSources)
                 def toReload = updateInternalApplicationClasses(groovy)
                 hotswapClasses(toReload)
             }
@@ -120,6 +124,8 @@ class GroovyPlugin extends PlayPlugin {
         try {
             def sources = findSources()
 
+            //Groovy compiler needs to have also java files to support cross compilation
+            //it will not compile them but needs to resolve classes there to compile Groovy code
             def allSources = new ArrayList(sources.java)
             allSources.addAll(sources.groovy)
 

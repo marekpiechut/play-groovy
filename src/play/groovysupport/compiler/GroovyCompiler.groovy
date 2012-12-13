@@ -66,6 +66,10 @@ class GroovyCompiler {
 
         // TODO: investigate if there's a better way than creating new
         // CompilationUnit instances every time...
+
+        //Performance: Groovy compiler also executes javac and compiles all Java classes
+        //Maybe we could get them somehow instead of executing ECJ (Play compiler)
+        //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
 
         // reset classesToSources map
