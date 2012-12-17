@@ -46,8 +46,13 @@ class GroovyCompiler {
         def processorsLoader = ServiceLoader.load(Processor.class, Play.class.classLoader)
         def processors = processorsLoader.iterator()*.class.name.join(',')
 
+        def namedValues = ['encoding', compilerConf.sourceEncoding]
+        if(processors) {
+            namedValues << 'processor' << processors
+        }
+
         def compilerOptions = ['source': sourceVersion, 'target': sourceVersion, 'keepStubs': true, 'stubDir': stubsFolder,
-                'namedValues': ['processor', processors, 'encoding', compilerConf.sourceEncoding] as String[]]
+                'namedValues': namedValues as String[]]
         compilerConf.setJointCompilationOptions(compilerOptions)
 
         new GroovyClassLoader(Play.classloader, compilerConf)
