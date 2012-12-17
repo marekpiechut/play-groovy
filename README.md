@@ -5,16 +5,9 @@ This is a Groovy plugin for the Play Framework -- it'll allow you to write your 
 
 NOTICE
 -------
-If you are having some compilation isses on first application request in dev mode
-you can enable application startup immediately after initialization (in version 0.2.1). This will
-compile all sources before first request is executed. Issue is caused by standard Play code
-that doesn't use plugins to compile sources when template compilation needs to load uncompiled class.
-Add following lines to `application.conf` to enable it:
-
-	# Make sure Groovy compied all classes before first request is executed
-	play.groovy.compileOnInit=true
+As github has stopped its support for static file downloads I've had to move releases somewhere else.
+For now I'm using dropbox public files. **Please update your repository URLs**. We'll see how it works.
 	
-
 Done
 ----
 * Groovy (1.8.8) compilation (with recompile on reload)
@@ -34,13 +27,13 @@ Add repository and dependency to your dependencies.yml:
 
 	require:
 	    - play
-    	- marekpiechut -> groovy 0.2.1
+	    - marekpiechut -> groovy 0.2.2
 
 	repositories:
 	    - marekpiechut:
 	        type:       http
-	        artifact:   http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].zip
-	        descriptor: http://cloud.github.com/downloads/marekpiechut/play-[module]/[module]-[revision].yml
+	        artifact:   http://dl.dropbox.com/u/87385581/play-plugins/[module]/[module]-[revision].zip
+	        descriptor: http://dl.dropbox.com/u/87385581/play-plugins/[module]/[module]-[revision].yml
 	        contains:
 	            - marekpiechut -> *
 
@@ -122,3 +115,7 @@ Todo
 Future
 ------
 * JPA is great but doesn't look so Groovy. I wonder if I could get Grails' GORM to work...
+
+Changelog
+---------
+* 0.2.2 - Fix compilation issues in trully cross compiling projects (groovy->java->groovy).
