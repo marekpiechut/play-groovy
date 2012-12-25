@@ -3,6 +3,7 @@ package play.groovysupport
 import groovy.io.FileType
 import play.Logger
 import play.Play
+import play.Play.Mode
 import play.PlayPlugin
 import play.cache.Cache
 import play.classloading.ApplicationClasses.ApplicationClass
@@ -10,18 +11,13 @@ import play.classloading.ApplicationClassloader
 import play.classloading.ApplicationClassloaderState
 import play.classloading.BytecodeCache
 import play.classloading.HotswapAgent
-import play.exceptions.CompilationException
 import play.groovysupport.compiler.CallSiteRemover
 import play.groovysupport.compiler.ClassDefinition
-import play.groovysupport.compiler.CompilationErrorException
 import play.groovysupport.compiler.GroovyCompiler
-import play.test.BaseTest
-import play.test.TestEngine.TestResults
+import play.groovysupport.compiler.PlayGroovyCompilerConfiguration
 import play.vfs.VirtualFile
 
 import java.security.ProtectionDomain
-import play.Play.Mode
-import play.groovysupport.compiler.PlayGroovyCompilerConfiguration
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -69,29 +65,25 @@ class GroovyPlugin extends PlayPlugin {
         }
 
         Logger.debug("Updating changed classes")
-        try {
-            def sources = findSources(isChanged)
-            Logger.debug("Updated sources: ${sources}")
-            if (sources.groovy) {
-                //Groovy compiler needs to have also java files to support cross compilation
-                //it will not compile them but needs to resolve classes there to compile Groovy code
-                def allSources = new ArrayList(sources.java)
-                allSources.addAll(sources.groovy)
-                def groovy = updateGroovy(allSources)
-                def toReload = updateInternalApplicationClasses(groovy)
-                hotswapClasses(toReload)
-            }
-            if (sources.java) {
-                def java = updateJava(sources.java)
-                def toReload = updateInternalApplicationClasses(java)
-                hotswapClasses(toReload)
-            }
+        def sources = findSources(isChanged)
+        Logger.debug("Updated sources: ${sources}")
+        if (sources.groovy) {
+            //Groovy compiler needs to have also java files to support cross compilation
+            //it will not compile them but needs to resolve classes there to compile Groovy code
+            def allSources = new ArrayList(sources.java)
+            allSources.addAll(sources.groovy)
+            def groovy = updateGroovy(allSources)
+            def toReload = updateInternalApplicationClasses(groovy)
+            hotswapClasses(toReload)
+        }
+        if (sources.java) {
+            def java = updateJava(sources.java)
+            def toReload = updateInternalApplicationClasses(java)
+            hotswapClasses(toReload)
+        }
 
-            if (sources.java || sources.groovy) {
-                removeDeletedClasses();
-            }
-        } catch (CompilationErrorException e) {
-            throw compilationException(e.compilationError)
+        if (sources.java || sources.groovy) {
+            removeDeletedClasses();
         }
 
         return true;
@@ -115,22 +107,18 @@ class GroovyPlugin extends PlayPlugin {
         Logger.debug("Recompiling all sources")
         Logger.debug "START FULL COMPILATION"
         def start = System.currentTimeMillis()
-        try {
-            def sources = findSources()
+        def sources = findSources()
 
-            //Groovy compiler needs to have also java files to support cross compilation
-            //it will not compile them but needs to resolve classes there to compile Groovy code
-            def allSources = new ArrayList(sources.java)
-            allSources.addAll(sources.groovy)
+        //Groovy compiler needs to have also java files to support cross compilation
+        //it will not compile them but needs to resolve classes there to compile Groovy code
+        def allSources = new ArrayList(sources.java)
+        allSources.addAll(sources.groovy)
 
-            def groovy = updateGroovy(allSources)
-            updateInternalApplicationClasses(groovy)
+        def groovy = updateGroovy(allSources)
+        updateInternalApplicationClasses(groovy)
 
-            def java = updateJava(sources.java)
-            updateInternalApplicationClasses(java)
-        } catch (CompilationErrorException e) {
-            throw compilationException(e.compilationError)
-        }
+        def java = updateJava(sources.java)
+        updateInternalApplicationClasses(java)
 
         Logger.debug "FULL COMPILATION TOOK: ${(System.currentTimeMillis() - start) / 1000}"
         return true
@@ -227,17 +215,6 @@ class GroovyPlugin extends PlayPlugin {
                     }
                 }
             }
-        }
-    }
-
-    def compilationException(compilationError) {
-        if (compilationError.source) {
-            new CompilationException(
-                    VirtualFile.open(compilationError.source), compilationError.message,
-                    compilationError.line, compilationError.start, compilationError.end
-            )
-        } else {
-            new CompilationException(compilationError.message)
         }
     }
 

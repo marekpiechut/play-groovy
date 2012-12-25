@@ -1,24 +1,18 @@
 package play.groovysupport.compiler
 
-import org.codehaus.groovy.ast.ClassHelper
-import org.codehaus.groovy.control.CompilationFailedException
+import groovy.transform.InheritConstructors
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
-import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.messages.SimpleMessage
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage
 import org.codehaus.groovy.tools.javac.JavaAwareCompilationUnit
-import play.Logger
 import play.Play
-
-import static org.codehaus.groovy.control.CompilationUnit.SourceUnitOperation
-import javax.annotation.processing.Processor
+import play.exceptions.CompilationException
+import play.vfs.VirtualFile
 
 class GroovyCompiler {
 
     def compilerConf
-    def prevClasses = [:]
-    def classesToSources = [:]
     def groovyClassLoader
 
     def GroovyCompiler(CompilerConfiguration configuration) {
@@ -40,11 +34,6 @@ class GroovyCompiler {
         //Maybe we could get them somehow instead of executing ECJ (Play compiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
-
-        // reset classesToSources map
-        classesToSources = [:]
-
-        // fix static star imports, see comment on field
         cu.addSources(sources as File[])
 
         try {
@@ -53,31 +42,22 @@ class GroovyCompiler {
 
             cu.compile()
 
-            cu.getClasses().each {
-                newClasses[it.getName()] = [bytes: it.getBytes()]
-            }
-
-            // now that compilation is done we can create the classesToSources map
+            def sourceFileMap = new HashMap(sources.size())
             for (sourceUnit in cu) {
                 sourceUnit.getAST().classes.each { clazz ->
-                    // ignore inner classes
-                    if (!clazz.name.contains('$')) {
-                        classesToSources[clazz.name] = new File(sourceUnit.name)
-                    }
+                    def filename = sourceUnit.name
+                    sourceFileMap[clazz.name] = new File(filename)
                 }
             }
 
-            // NOTE: since the CompilationUnit will simply recompile everything
-            // it's given, we're not bothering with 'recompiled' classes
-            def updated = newClasses.keySet()
-                    .collect { cn ->
-                new ClassDefinition(name: cn,
-                        code: newClasses[cn].bytes, source: classNameToSource(cn))
+            cu.classes.each {
+                //We map sources by outer class name so we have to substring inner classes
+                def sourceName = it.name.contains('$') ? it.name[0..it.name.indexOf('$') - 1] : it.name
+                def sourceFile = sourceFileMap[sourceName]
+                newClasses[it.name] = new ClassDefinition(name: it.name, code: it.bytes, source: sourceFile)
             }
 
-            prevClasses = newClasses
-
-            return updated
+            return newClasses.values()
 
         } catch (MultipleCompilationErrorsException e) {
 
@@ -92,25 +72,18 @@ class GroovyCompiler {
                     System.exit(1)
                 } else if (errorMessage instanceof SyntaxErrorMessage) {
                     errorMessage = errorMessage as SyntaxErrorMessage
-                    def syntaxException = errorMessage.getCause()
+                    def syntaxException = errorMessage.cause
 
-                    def compilationError = new CompilationError(
-                            message: syntaxException.getMessage(),
-                            line: syntaxException.getLine(),
-                            start: syntaxException.getStartColumn(),
-                            end: syntaxException.getStartLine(),
-                            source: new File(syntaxException.getSourceLocator())
+                    throw new CompilationException(
+                            VirtualFile.open(syntaxException.sourceLocator), syntaxException.message,
+                            syntaxException.line, syntaxException.startColumn, syntaxException.endColumn
                     )
-
-                    throw new CompilationErrorException(compilationError)
                 } else {
-                    throw errorMessage.getCause()
+                    throw errorMessage.cause
                 }
             }
 
-            throw new CompilationErrorException(
-                    new CompilationError(e)
-            )
+            throw new CompilationException(e.message)
         }
     }
 }
@@ -126,24 +99,3 @@ class ClassDefinition {
     }
 }
 
-class CompilationError {
-    String message
-    Integer line
-    Integer start
-    Integer end
-    File source
-
-    @Override
-    String toString() {
-        "CompilationError(${message}, ${line}, ${start}, ${end}, ${source})"
-    }
-}
-
-class CompilationErrorException extends Exception {
-    CompilationError compilationError
-
-    def CompilationErrorException(compilationError) {
-        super()
-        this.compilationError = compilationError
-    }
-}
