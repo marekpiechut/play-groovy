@@ -20,15 +20,6 @@ class GroovyCompiler {
         groovyClassLoader = new GroovyClassLoader(Play.classloader, compilerConf)
     }
 
-    def classNameToSource(name) {
-        if (name.contains('$')) {
-            // inner classes will be in the same file as
-            // their parent class, so look on that instead
-            name = name.substring(0, name.indexOf('$'))
-        }
-        return classesToSources[name]
-    }
-
     def update(List sources) {
         //Performance: Groovy compiler also executes javac and compiles all Java classes
         //Maybe we could get them somehow instead of executing ECJ (Play compiler)
@@ -71,7 +62,6 @@ class GroovyCompiler {
                     e.printStackTrace()
                     System.exit(1)
                 } else if (errorMessage instanceof SyntaxErrorMessage) {
-                    errorMessage = errorMessage as SyntaxErrorMessage
                     def syntaxException = errorMessage.cause
 
                     throw new CompilationException(
@@ -79,7 +69,7 @@ class GroovyCompiler {
                             syntaxException.line, syntaxException.startColumn, syntaxException.endColumn
                     )
                 } else {
-                    throw errorMessage.cause
+                    throw new CompilationException(errorMessage.cause ? errorMessage.cause.message : errorMessage.toString())
                 }
             }
 
