@@ -36,10 +36,6 @@ class GroovyCompiler {
     }
 
     def update(List sources) {
-
-        // TODO: investigate if there's a better way than creating new
-        // CompilationUnit instances every time...
-
         //Performance: Groovy compiler also executes javac and compiles all Java classes
         //Maybe we could get them somehow instead of executing ECJ (Play compiler)
         //or use ECJ also here and don't process java files in second compilation
@@ -49,7 +45,6 @@ class GroovyCompiler {
         classesToSources = [:]
 
         // fix static star imports, see comment on field
-        cu.addPhaseOperation(importFixer, org.codehaus.groovy.control.Phases.CONVERSION)
         cu.addSources(sources as File[])
 
         try {
@@ -116,41 +111,6 @@ class GroovyCompiler {
             throw new CompilationErrorException(
                     new CompilationError(e)
             )
-        }
-    }
-
-    /**
-     * the groovy compiler appears to ignore <import package.name.*> when
-     * trying to import nested static classes. Groovy considers these as
-     * 'static star imports', and needs the "import static package.org.*"
-     * syntax for them to work.
-     *
-     * Since Java files won't have this syntax,
-     * we need to do a little modification to the AST during compilation
-     * to ensure any of the compiled play-Java classes have their imports
-     * picked up. This seems like more of an interim solution though...
-     */
-    def importFixer = new SourceUnitOperation() {
-
-        // TODO: add all the relative play static star imports
-        def playStaticStarImports = [
-                'play.mvc.Http'
-        ]
-
-        void call(SourceUnit source) throws CompilationFailedException {
-
-            def ast = source.getAST()
-            def imports = ast.getStarImports()
-                    .collect {
-                it.getPackageName()[0..it.getPackageName().length() - 2]
-            }
-                    .findAll {
-                it in playStaticStarImports
-            }
-
-            imports.each {
-                ast.addStaticStarImport('*', ClassHelper.make(it))
-            }
         }
     }
 }
