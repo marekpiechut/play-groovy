@@ -21,6 +21,7 @@ import play.vfs.VirtualFile
 
 import java.security.ProtectionDomain
 import play.Play.Mode
+import play.groovysupport.compiler.PlayGroovyCompilerConfiguration
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -30,14 +31,7 @@ class GroovyPlugin extends PlayPlugin {
 
     @Override
     void onLoad() {
-
-        def stubsFolder = new File(Play.tmpDir, 'groovy_stubs');
-        compiler = new GroovyCompiler(System.getProperty('java.class.path')
-                .split(System.getProperty('path.separator')) as List,
-                Play.tmpDir,
-                stubsFolder
-        )
-
+        compiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
         Logger.info('Groovy support is active')
     }
 

@@ -16,46 +16,14 @@ import javax.annotation.processing.Processor
 
 class GroovyCompiler {
 
-    def output
     def compilerConf
     def prevClasses = [:]
     def classesToSources = [:]
-    def stubsFolder
     def groovyClassLoader
 
-    def GroovyCompiler(List classpath, File output, File stubsFolder) {
-
-        this.output = output
-        this.stubsFolder = stubsFolder
-
-        compilerConf = new CompilerConfiguration()
-        compilerConf.sourceEncoding = 'UTF-8'
-        compilerConf.recompileGroovySource = false
-
-        def targetDirectory = new File(output, 'classes/')
-        targetDirectory.mkdirs()
-        compilerConf.setTargetDirectory(targetDirectory)
-
-        compilerConf.setClasspathList(classpath)
-
-        def sourceVersion = Play.configuration.get('java.source', '1.5')
-        Logger.debug("Compiling using ${sourceVersion} source/target level")
-
-        compilerConf.setDebug(true)
-
-        def processorsLoader = ServiceLoader.load(Processor.class, Play.class.classLoader)
-        def processors = processorsLoader.iterator()*.class.name.join(',')
-
-        def namedValues = ['encoding', compilerConf.sourceEncoding]
-        if(processors) {
-            namedValues << 'processor' << processors
-        }
-
-        def compilerOptions = ['source': sourceVersion, 'target': sourceVersion, 'keepStubs': true, 'stubDir': stubsFolder,
-                'namedValues': namedValues as String[]]
-        compilerConf.setJointCompilationOptions(compilerOptions)
-
-        new GroovyClassLoader(Play.classloader, compilerConf)
+    def GroovyCompiler(CompilerConfiguration configuration) {
+        compilerConf = configuration
+        groovyClassLoader = new GroovyClassLoader(Play.classloader, compilerConf)
     }
 
     def classNameToSource(name) {
@@ -176,7 +144,7 @@ class GroovyCompiler {
                     .collect {
                 it.getPackageName()[0..it.getPackageName().length() - 2]
             }
-            .findAll {
+                    .findAll {
                 it in playStaticStarImports
             }
 
