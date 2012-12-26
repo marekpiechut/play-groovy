@@ -1,6 +1,5 @@
 package play.groovysupport.compiler
 
-import groovy.transform.InheritConstructors
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
 import org.codehaus.groovy.control.messages.SimpleMessage
@@ -20,12 +19,12 @@ class GroovyCompiler {
         groovyClassLoader = new GroovyClassLoader(Play.classloader, compilerConf)
     }
 
-    def update(List sources) {
-        //Performance: Groovy compiler also executes javac and compiles all Java classes
-        //Maybe we could get them somehow instead of executing ECJ (Play compiler)
+    def update(List<Source> sources) {
+        //Performance: Groovy groovyCompiler also executes javac and compiles all Java classes
+        //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
-        cu.addSources(sources as File[])
+        cu.addSources(sources*.file as File[])
 
         try {
 
@@ -45,7 +44,7 @@ class GroovyCompiler {
                 //We map sources by outer class name so we have to substring inner classes
                 def sourceName = it.name.contains('$') ? it.name[0..it.name.indexOf('$') - 1] : it.name
                 def sourceFile = sourceFileMap[sourceName]
-                newClasses[it.name] = new ClassDefinition(name: it.name, code: it.bytes, source: sourceFile)
+                newClasses[it.name] = new ClassDefinition(it.name, it.bytes, sourceFile)
             }
 
             return newClasses.values()
@@ -75,17 +74,6 @@ class GroovyCompiler {
 
             throw new CompilationException(e.message)
         }
-    }
-}
-
-class ClassDefinition {
-    String name
-    byte[] code
-    File source
-
-    @Override
-    String toString() {
-        "ClassDefinition(name: ${name}, source: ${source})"
     }
 }
 

@@ -5,8 +5,8 @@ import play.Play
 import javax.annotation.processing.Processor
 
 /**
- * Groovy compiler configuration using Play framework defaults and
- * Play configuration to setup groovy compiler so it's compatible
+ * Groovy groovyCompiler configuration using Play framework defaults and
+ * Play configuration to setup groovy groovyCompiler so it's compatible
  * with Play.
  *
  * @author Marek Piechut <marek.piechut@gmail.com>
@@ -42,7 +42,7 @@ class PlayGroovyCompilerConfiguration extends CompilerConfiguration {
             namedValues << 'processor' << processors
         }
 
-        //Options for Javac compiler used internally by Groovy compiler to handle java code
+        //Options for Javac groovyCompiler used internally by Groovy groovyCompiler to handle java code
         def compilerOptions = ['source': sourceVersion, 'target': sourceVersion,
                 'keepStubs': true, 'stubDir': stubsFolder,
                 'namedValues': namedValues as String[]]
