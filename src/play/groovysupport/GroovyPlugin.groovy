@@ -1,23 +1,21 @@
 package play.groovysupport
 
+import groovy.io.FileType
 import play.Logger
 import play.Play
 import play.Play.Mode
 import play.PlayPlugin
-import play.classloading.ApplicationClasses.ApplicationClass
-import play.groovysupport.compiler.GroovyCompiler
-import play.groovysupport.compiler.PlayGroovyCompilerConfiguration
-import groovy.io.FileType
-import play.classloading.HotswapAgent
 import play.cache.Cache
-import play.classloading.ApplicationClassloaderState
-import play.vfs.VirtualFile
-import play.classloading.BytecodeCache
-import play.groovysupport.compiler.CallSiteRemover
+import play.classloading.ApplicationClasses.ApplicationClass
 import play.classloading.ApplicationClassloader
+import play.classloading.ApplicationClassloaderState
+import play.classloading.BytecodeCache
+import play.classloading.HotswapAgent
+import play.vfs.VirtualFile
+
 import java.security.ProtectionDomain
-import play.groovysupport.compiler.Source
-import play.groovysupport.compiler.JavaCompiler
+
+import play.groovysupport.compiler.*
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -87,8 +85,7 @@ class GroovyPlugin extends PlayPlugin {
 
         //Groovy groovyCompiler needs to have also java files to support cross compilation
         //it will not compile them but needs to resolve classes there to compile Groovy code
-        def allSources = new ArrayList(sources.java)
-        allSources.addAll(sources.groovy)
+        def allSources = sources.java + sources.groovy
 
         def groovy = groovyCompiler.update(allSources)
         updateInternalApplicationClasses(groovy)
@@ -198,10 +195,7 @@ class GroovyPlugin extends PlayPlugin {
                 appClass.enhancedByteCode = it.code
 
                 //Groovy classes also need Play byte code enhances
-                def oldSum = appClass.sigChecksum
-
                 appClass.enhance()
-                sigChanged = oldSum != appClass.sigChecksum
 
                 BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
             }
@@ -235,7 +229,6 @@ class GroovyPlugin extends PlayPlugin {
 
     def getClass(name, code) {
         try {
-
             def method = ApplicationClassloader.class.getMethod('loadClass', String.class)
             method.accessible = true
             return method.invoke(Play.classloader, name)

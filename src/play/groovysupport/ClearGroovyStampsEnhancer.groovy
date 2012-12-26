@@ -86,8 +86,8 @@ class ClearGroovyStampsEnhancer extends Enhancer {
                         ci.writeByte((byte) Opcode.POP2, index);
                         //PUTSTATIC takes 2 arguments so we have to clear them out or
                         //they will be used as byte code instructions and probably invalidate class
-                        ci.writeByte((byte) Opcode.NOP, index + 1);
-                        ci.writeByte((byte) Opcode.NOP, index + 2);
+                        ci.writeByte((byte) Opcode.NOP, index + 1)
+                        ci.writeByte((byte) Opcode.NOP, index + 2)
                     }
                 }
 
