@@ -1,10 +1,14 @@
 package play.groovysupport.compiler
 
+import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
 import org.codehaus.groovy.control.messages.SimpleMessage
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage
 import org.codehaus.groovy.tools.javac.JavaAwareCompilationUnit
+import org.codehaus.groovy.tools.javac.JavaCompiler
+import org.codehaus.groovy.tools.javac.JavaCompilerFactory
+import play.Logger
 import play.Play
 import play.exceptions.CompilationException
 import play.vfs.VirtualFile
@@ -14,16 +18,20 @@ class GroovyCompiler {
     def compilerConf
     def groovyClassLoader
 
+    private JavaCompilerFactory javaCompilerFactory = new NoopJavaCompilerFactory()
+
     def GroovyCompiler(CompilerConfiguration configuration) {
         compilerConf = configuration
-        groovyClassLoader = new GroovyClassLoader(Play.classloader, compilerConf)
+        groovyClassLoader = new GroovyClassLoader(Play.classloader, compilerConf, true)
     }
 
     def update(List<Source> sources) {
+        Logger.debug("Compiling groovy classes: ${sources*.file.name}")
         //Performance: Groovy groovyCompiler also executes javac and compiles all Java classes
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
+        cu.compilerFactory = javaCompilerFactory
         cu.addSources(sources*.file as File[])
 
         try {
@@ -73,6 +81,22 @@ class GroovyCompiler {
             }
 
             throw new CompilationException(e.message)
+        }
+    }
+
+    static class NoopJavaCompilerFactory implements JavaCompilerFactory {
+
+        private static JavaCompiler compiler = new JavaCompiler() {
+
+            @Override
+            void compile(List<String> files, CompilationUnit cu) {
+                //DO NOTHING
+            }
+        }
+
+        @Override
+        JavaCompiler createCompiler(CompilerConfiguration config) {
+            return compiler;
         }
     }
 }
