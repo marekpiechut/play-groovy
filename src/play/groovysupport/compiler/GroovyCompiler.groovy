@@ -21,6 +21,7 @@ class GroovyCompiler {
     }
 
     def update(List<Source> sources) {
+        Logger.debug("Compiling groovy classes: ${sources*.file.name}")
         //Performance: Groovy groovyCompiler also executes javac and compiles all Java classes
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation

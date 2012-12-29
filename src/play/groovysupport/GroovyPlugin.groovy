@@ -37,7 +37,7 @@ class GroovyPlugin extends PlayPlugin {
                 //Need to start application to ensure all classes are compiled
                 //before first request is done and tries to use stock Play
                 //groovyCompiler instead of plugins (bug in Play) that won't find groovy classes
-                Logger.info("Starting application (set play.groovy.compileOnInit=false in application.conf to disable")
+                Logger.info("Starting application (set play.groovy.compileOnInit=false in application.conf to disable)")
                 Play.start()
             }
         }
