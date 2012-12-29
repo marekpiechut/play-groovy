@@ -5,7 +5,8 @@ import org.codehaus.groovy.control.MultipleCompilationErrorsException
 import org.codehaus.groovy.control.messages.SimpleMessage
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage
 import org.codehaus.groovy.tools.javac.JavaAwareCompilationUnit
-import play.Play
+import play.classloading.ApplicationClasses.ApplicationClass
+import play.classloading.ApplicationClassloader
 import play.exceptions.CompilationException
 import play.vfs.VirtualFile
 
@@ -16,7 +17,7 @@ class GroovyCompiler {
 
     def GroovyCompiler(CompilerConfiguration configuration) {
         compilerConf = configuration
-        groovyClassLoader = new GroovyClassLoader(Play.classloader, compilerConf)
+        groovyClassLoader = new GroovyClassLoader(new CompilerClassLoader(), compilerConf)
     }
 
     def update(List<Source> sources) {
@@ -73,6 +74,33 @@ class GroovyCompiler {
             }
 
             throw new CompilationException(e.message)
+        }
+    }
+
+    /**
+     * Need to override Play application classloader to stop it
+     * from compiling classes using OOTB Play compiler.
+     *
+     * Need to use it though to make sure classes loaded by Play
+     * and by plugin have same classloader (are equal)
+     */
+    private class CompilerClassLoader extends ApplicationClassloader {
+
+        /**
+         * Just try to find class. Don't try to compile it as
+         * we're already in middle of compilation.
+         *
+         * @param name
+         * @return
+         */
+        @Override
+        public Class<?> loadApplicationClass(String name) {
+            if (ApplicationClass.isClass(name)) {
+                Class maybeAlreadyLoaded = findLoadedClass(name);
+                if (maybeAlreadyLoaded != null) {
+                    return maybeAlreadyLoaded;
+                }
+            }
         }
     }
 }

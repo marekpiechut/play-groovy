@@ -1,7 +1,7 @@
 package play.groovysupport.compiler
 
 /**
- * @author Marek Piechut <m.piechut@tt.com.pl>
+ * @author Marek Piechut <marek.piechut@gmail.com>
  */
 class ClassDefinition {
     String name

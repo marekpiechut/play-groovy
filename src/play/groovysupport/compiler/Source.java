@@ -5,7 +5,7 @@ import groovy.transform.ToString;
 import java.io.File;
 
 /**
- * @author Marek Piechut <m.piechut@tt.com.pl>
+ * @author Marek Piechut <marek.piechut@gmail.com>
  */
 @ToString
 public class Source {

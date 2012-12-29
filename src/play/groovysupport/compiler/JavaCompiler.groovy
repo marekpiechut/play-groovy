@@ -4,7 +4,7 @@ import play.Logger
 import play.Play
 
 /**
- * @author Marek Piechut <m.piechut@tt.com.pl>
+ * @author Marek Piechut <marek.piechut@gmail.com>
  */
 class JavaCompiler {
 
