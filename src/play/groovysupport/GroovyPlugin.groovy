@@ -16,11 +16,11 @@ import play.vfs.VirtualFile
 import java.security.ProtectionDomain
 
 import play.groovysupport.compiler.*
+import play.groovysupport.compiler.Source.Language
 
 class GroovyPlugin extends PlayPlugin {
 
     def groovyCompiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
-    def javaCompiler = new JavaCompiler()
     def clearStampsEnhancer = new ClearGroovyStampsEnhancer()
     def testRunnerEnhancer = new TestRunnerEnhancer()
 
@@ -55,22 +55,20 @@ class GroovyPlugin extends PlayPlugin {
         Logger.debug("Updating changed classes")
         def sources = findSources(isChanged)
         Logger.debug("Updated sources: ${sources}")
-        if (sources.groovy) {
+        if (sources) {
             //Groovy groovyCompiler needs to have also java files to support cross compilation
             //it will not compile them but needs to resolve classes there to compile Groovy code
-            def allSources = sources.java + sources.groovy
-            def groovy = groovyCompiler.update(allSources)
-            def toReload = updateInternalApplicationClasses(groovy)
-            hotswapClasses(toReload)
-        }
-//        if (sources.java) {
-//            def java = javaCompiler.update(sources.java)
-//            def toReload = updateInternalApplicationClasses(java)
-//            hotswapClasses(toReload)
-//        }
+            def classes = groovyCompiler.update(sources)
 
-        if (sources.java || sources.groovy) {
-            removeDeletedClasses();
+            updateApplicationClasses(classes)
+            enhanceApplicationClasses(classes)
+
+            def toHotswap = classes.grep {!it.newClass}
+            hotswapClasses(toHotswap)
+
+            removeDeletedClasses()
+
+            cacheByteCode(classes)
         }
 
         return true;
@@ -83,14 +81,24 @@ class GroovyPlugin extends PlayPlugin {
         def start = System.currentTimeMillis()
         def sources = findSources()
 
-        //Groovy groovyCompiler needs to have also java files to support cross compilation
-        //it will not compile them but needs to resolve classes there to compile Groovy code
-        def allSources = sources.java + sources.groovy
+        def classes = groovyCompiler.update(sources)
+        updateApplicationClasses(classes)
 
-        def groovy = groovyCompiler.update(allSources)
-//        def java = javaCompiler.update(sources.java)
+        def toEnhance = []
+        //Try to get enhanced code from cache
+        classes.each {
+            def appClass = it.appClass
+            def cachedBytecode = BytecodeCache.getBytecode(appClass.name, appClass.javaSource)
 
-        updateInternalApplicationClasses(groovy)
+            if (cachedBytecode) {
+                appClass.enhancedByteCode = cachedBytecode
+            } else {
+                toEnhance << it
+            }
+        }
+
+        enhanceApplicationClasses(toEnhance)
+        cacheByteCode(toEnhance)
 
         Logger.debug "FULL COMPILATION TOOK: ${(System.currentTimeMillis() - start) / 1000}"
         return true
@@ -102,7 +110,7 @@ class GroovyPlugin extends PlayPlugin {
         testRunnerEnhancer.enhanceThisClass(applicationClass)
     }
 
-    def isChanged = { file ->
+    private def isChanged = { file ->
         for (appClass in Play.@classes.all()) {
             if (appClass.javaFile.realFile == file) {
                 return (appClass.timestamp < file.lastModified())
@@ -117,25 +125,64 @@ class GroovyPlugin extends PlayPlugin {
      *
      * @return Map [file -> modify stamp]
      */
-    def findSources(filter = null) {
-        def java = []
-        def groovy = []
+    List<Source> findSources(filter = null) {
+        def sources = []
         Play.javaPath.grep({ it.exists() }).each { virtualFile ->
             virtualFile.realFile.eachFileRecurse(FileType.FILES, { f ->
                 if (!filter || filter(f)) {
                     if (f.name.endsWith('.java')) {
-                        java << new Source(virtualFile.realFile, f)
+                        sources << new Source(virtualFile.realFile, f, Language.JAVA)
                     } else if (f.name.endsWith('.groovy')) {
-                        groovy << new Source(virtualFile.realFile, f)
+                        sources << new Source(virtualFile.realFile, f, Language.GROOVY)
                     }
                 }
             })
         }
 
-        return ['java': java, 'groovy': groovy]
+        return sources
     }
 
-    def hotswapClasses(toReload) {
+    /**
+     * Update Play internal ApplicationClasses
+     */
+    private void updateApplicationClasses(Collection<ClassDefinition> updatedClasses) {
+        Logger.debug("Updating internal Play classes: ${updatedClasses*.name}")
+
+        updatedClasses.each {
+            def appClass = toApplicationClass(it)
+            it.appClass = appClass
+            Play.@classes.add(appClass)
+        }
+    }
+
+    private void enhanceApplicationClasses(Collection<ClassDefinition> toEnhance) {
+        toEnhance.each {classDef ->
+            def appClass = classDef.appClass
+            appClass.enhance()
+
+            if (!appClass.javaClass) {
+                appClass.javaClass = getClass(appClass.name, appClass.enhancedByteCode)
+            }
+        }
+    }
+
+    void hotswapClasses(Collection<ClassDefinition> classes) {
+
+        def toReload = new ArrayList<>(classes.size())
+
+        classes.each {classDef ->
+            if (classDef.groovy) {
+                //Groovy classes need method call cache cleared on hotswap
+                try {
+                    CallSiteRemover.clearCallSite(classDef.appClass.javaClass)
+                } catch (Exception ex) {
+                    throw new RuntimeException("Could not clear CallSite. Need reload!")
+                }
+            }
+
+            toReload << new java.lang.instrument.ClassDefinition(classDef.appClass.javaClass, classDef.appClass.enhancedByteCode)
+        }
+
         if (HotswapAgent.enabled && toReload) {
             Cache.clear();
             try {
@@ -148,7 +195,14 @@ class GroovyPlugin extends PlayPlugin {
         }
     }
 
-    def removeDeletedClasses() {
+    private void cacheByteCode(Collection<ClassDefinition> classDefs) {
+        classDefs.each {
+            def appClass = it.appClass
+            BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, appClass.javaSource)
+        }
+    }
+
+    private void removeDeletedClasses() {
         Logger.debug("Removing deleted classes from classloader")
         Play.@classes.all().each {
             if (!it.javaFile.exists()) {
@@ -171,76 +225,6 @@ class GroovyPlugin extends PlayPlugin {
         }
     }
 
-    /**
-     * Update Play internal ApplicationClasses
-     */
-    def updateInternalApplicationClasses(updatedClasses) {
-        Logger.debug("Updating internal Play classes: ${updatedClasses*.name}")
-
-
-        updatedClasses.each {
-            def appClass = Play.@classes.getApplicationClass(it.name)
-            if (!appClass) appClass = new ApplicationClass(it.name)
-            appClass.javaFile = VirtualFile.open(it.source)
-            appClass.javaByteCode = it.code
-            appClass.compiled = true;
-            appClass.javaSource = it.source.text
-            appClass.timestamp = it.source.lastModified()
-
-            def cachedBytecode = BytecodeCache.getBytecode(it.name, it.source.text)
-            if (cachedBytecode) {
-                appClass.enhancedByteCode = cachedBytecode
-            } else {
-                appClass.enhancedByteCode = it.code
-            }
-
-            Play.@classes.add(appClass)
-        }
-
-        def toReload = []
-        updatedClasses.each {
-            def appClass = Play.@classes.getApplicationClass(it.name)
-            def cachedBytecode = BytecodeCache.getBytecode(it.name, it.source.text)
-
-            def newClass = !Play.@classes.hasClass(appClass.name)
-
-            if (cachedBytecode) {
-                appClass.enhancedByteCode = cachedBytecode
-            } else {
-                //Groovy classes also need Play byte code enhances
-                appClass.enhance()
-
-                BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
-            }
-
-            //Make Play see (replace) current classes
-            Play.@classes.add(appClass)
-            //Need to cache byte code or you won't see any changes
-            if (!appClass.javaClass) {
-                appClass.javaClass = getClass(appClass.name, appClass.enhancedByteCode)
-            }
-
-            if (!newClass && it.source.name.endsWith('.groovy')) {
-                //Groovy classes need method call cache cleared on hotswap
-                try {
-                    CallSiteRemover.clearCallSite(appClass.javaClass)
-                } catch (Exception ex) {
-                    throw new RuntimeException("Could not clear CallSite. Need reload!")
-                }
-            }
-
-            if (!newClass) {
-                toReload << new java.lang.instrument.ClassDefinition(appClass.javaClass, appClass.enhancedByteCode)
-            }
-        }
-
-        return toReload
-    }
-
-    def enhanceUpdated(updatedClasses) {
-
-    }
-
     def getClass(name, code) {
         try {
             def method = ApplicationClassloader.class.getMethod('loadClass', String.class)
@@ -251,5 +235,18 @@ class GroovyPlugin extends PlayPlugin {
             method.accessible = true
             return method.invoke(Play.classloader, name, code, 0, code.length, Play.classloader.protectionDomain)
         }
+    }
+
+    private ApplicationClass toApplicationClass(ClassDefinition classDef) {
+        def appClass = Play.@classes.getApplicationClass(classDef.name)
+        if (!appClass) appClass = new ApplicationClass(classDef.name)
+        appClass.javaFile = VirtualFile.open(classDef.source)
+        appClass.javaByteCode = classDef.code
+        appClass.enhancedByteCode = classDef.code
+        appClass.compiled = true;
+        appClass.javaSource = classDef.source.text
+        appClass.timestamp = classDef.source.lastModified()
+
+        return appClass
     }
 }

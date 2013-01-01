@@ -12,13 +12,12 @@ import play.vfs.VirtualFile
 import play.Logger
 import org.codehaus.groovy.tools.javac.JavaCompilerFactory
 import org.codehaus.groovy.tools.javac.JavaCompiler
+import play.Play
 
 class GroovyCompiler {
 
     def compilerConf
     def groovyClassLoader
-    def javaCompiler = new PlayJavaCompiler()
-    def compilerFactory = new PlayJavaCompilerFactory()
 
     def GroovyCompiler(CompilerConfiguration configuration) {
         compilerConf = configuration
@@ -31,7 +30,8 @@ class GroovyCompiler {
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
-        cu.compilerFactory = compilerFactory
+        def javaCompiler = new PlayJavaCompiler()
+        cu.compilerFactory = new PlayJavaCompilerFactory(javaCompiler)
         cu.addSources(sources*.file as File[])
 
         try {
@@ -52,7 +52,9 @@ class GroovyCompiler {
                 //We map sources by outer class name so we have to substring inner classes
                 def sourceName = it.name.contains('$') ? it.name[0..it.name.indexOf('$') - 1] : it.name
                 def sourceFile = sourceFileMap[sourceName]
-                newClasses[it.name] = new ClassDefinition(it.name, it.bytes, sourceFile)
+                def classDef = new ClassDefinition(it.name, it.bytes, sourceFile)
+                classDef.newClass = !Play.@classes.hasClass(it.name)
+                newClasses[it.name] = classDef
             }
 
             def classDefinitions = javaCompiler.compilationResult + newClasses.values()
@@ -114,9 +116,15 @@ class GroovyCompiler {
 
     private class PlayJavaCompilerFactory implements JavaCompilerFactory {
 
+        PlayJavaCompiler compiler
+
+        PlayJavaCompilerFactory(PlayJavaCompiler compiler) {
+            this.compiler = compiler
+        }
+
         @Override
         JavaCompiler createCompiler(CompilerConfiguration config) {
-            return javaCompiler
+            return compiler
         }
     }
 }

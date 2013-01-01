@@ -19,6 +19,7 @@ class Application extends Controller {
 	}
 
 	static void index() {
+		println "ROMAN5"
 		Post frontPost = Post.find('order by postedAt desc').first()
 		List<Post> olderPosts = Post.find('order by postedAt desc').from(1).fetch(1)
 		render(frontPost, olderPosts)

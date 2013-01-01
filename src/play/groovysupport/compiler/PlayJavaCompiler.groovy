@@ -256,15 +256,29 @@ class PlayJavaCompiler implements JavaCompiler {
                 }
 
                 if (!result.compilationUnit.stub) {
-                    File targetFolder = new File(outputDir, clazzName[0..clazzName.lastIndexOf('.') - 1].replaceAll(/\./, '/'))
-                    File targetFile = new File(outputDir, clazzName.replaceAll(/\./, '/') + ".class")
-                    targetFolder.mkdirs()
+
+                    File sourceFile = result.compilationUnit.source
+                    def classDef = new ClassDefinition(clazzName.toString(), clazzFile.bytes, sourceFile)
+
+                    File targetFile = toClassFile(outputDir, clazzName.toString())
+                    def updated = !targetFile.exists() || sourceFile.lastModified() > targetFile.lastModified()
+
+                    targetFile.parentFile.mkdirs()
                     targetFile.createNewFile()
                     targetFile << clazzFile.bytes
 
-                    compilationResult << new ClassDefinition(clazzName.toString(), clazzFile.bytes, result.compilationUnit.source)
+                    classDef.newClass = !Play.@classes.hasClass(clazzName.toString())
+
+                    if (classDef.newClass || updated) {
+                        compilationResult << classDef
+                    }
                 }
             }
         }
+    }
+
+    private File toClassFile(File dir, String clazzName) {
+        File targetFile = new File(dir, clazzName.replaceAll(/\./, '/') + ".class")
+        return targetFile
     }
 }
