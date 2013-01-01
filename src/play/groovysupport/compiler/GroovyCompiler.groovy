@@ -9,23 +9,29 @@ import play.classloading.ApplicationClasses.ApplicationClass
 import play.classloading.ApplicationClassloader
 import play.exceptions.CompilationException
 import play.vfs.VirtualFile
+import play.Logger
+import org.codehaus.groovy.tools.javac.JavaCompilerFactory
+import org.codehaus.groovy.tools.javac.JavaCompiler
 
 class GroovyCompiler {
 
     def compilerConf
     def groovyClassLoader
+    def javaCompiler = new PlayJavaCompiler()
+    def compilerFactory = new PlayJavaCompilerFactory()
 
     def GroovyCompiler(CompilerConfiguration configuration) {
         compilerConf = configuration
         groovyClassLoader = new GroovyClassLoader(new CompilerClassLoader(), compilerConf)
     }
 
-    def update(List<Source> sources) {
+    synchronized def update(List<Source> sources) {
         Logger.debug("Compiling groovy classes: ${sources*.file.name}")
         //Performance: Groovy groovyCompiler also executes javac and compiles all Java classes
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
+        cu.compilerFactory = compilerFactory
         cu.addSources(sources*.file as File[])
 
         try {
@@ -49,7 +55,8 @@ class GroovyCompiler {
                 newClasses[it.name] = new ClassDefinition(it.name, it.bytes, sourceFile)
             }
 
-            return newClasses.values()
+            def classDefinitions = javaCompiler.compilationResult + newClasses.values()
+            return classDefinitions
 
         } catch (MultipleCompilationErrorsException e) {
 
@@ -102,6 +109,14 @@ class GroovyCompiler {
                     return maybeAlreadyLoaded;
                 }
             }
+        }
+    }
+
+    private class PlayJavaCompilerFactory implements JavaCompilerFactory {
+
+        @Override
+        JavaCompiler createCompiler(CompilerConfiguration config) {
+            return javaCompiler
         }
     }
 }

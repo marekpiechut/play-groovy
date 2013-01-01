@@ -63,11 +63,11 @@ class GroovyPlugin extends PlayPlugin {
             def toReload = updateInternalApplicationClasses(groovy)
             hotswapClasses(toReload)
         }
-        if (sources.java) {
-            def java = javaCompiler.update(sources.java)
-            def toReload = updateInternalApplicationClasses(java)
-            hotswapClasses(toReload)
-        }
+//        if (sources.java) {
+//            def java = javaCompiler.update(sources.java)
+//            def toReload = updateInternalApplicationClasses(java)
+//            hotswapClasses(toReload)
+//        }
 
         if (sources.java || sources.groovy) {
             removeDeletedClasses();
@@ -88,10 +88,9 @@ class GroovyPlugin extends PlayPlugin {
         def allSources = sources.java + sources.groovy
 
         def groovy = groovyCompiler.update(allSources)
-        updateInternalApplicationClasses(groovy)
+//        def java = javaCompiler.update(sources.java)
 
-        def java = javaCompiler.update(sources.java)
-        updateInternalApplicationClasses(java)
+        updateInternalApplicationClasses(groovy)
 
         Logger.debug "FULL COMPILATION TOOK: ${(System.currentTimeMillis() - start) / 1000}"
         return true
@@ -178,13 +177,29 @@ class GroovyPlugin extends PlayPlugin {
     def updateInternalApplicationClasses(updatedClasses) {
         Logger.debug("Updating internal Play classes: ${updatedClasses*.name}")
 
-        def toReload = []
+
         updatedClasses.each {
-            boolean sigChanged
             def appClass = Play.@classes.getApplicationClass(it.name)
             if (!appClass) appClass = new ApplicationClass(it.name)
             appClass.javaFile = VirtualFile.open(it.source)
             appClass.javaByteCode = it.code
+            appClass.compiled = true;
+            appClass.javaSource = it.source.text
+            appClass.timestamp = it.source.lastModified()
+
+            def cachedBytecode = BytecodeCache.getBytecode(it.name, it.source.text)
+            if (cachedBytecode) {
+                appClass.enhancedByteCode = cachedBytecode
+            } else {
+                appClass.enhancedByteCode = it.code
+            }
+
+            Play.@classes.add(appClass)
+        }
+
+        def toReload = []
+        updatedClasses.each {
+            def appClass = Play.@classes.getApplicationClass(it.name)
             def cachedBytecode = BytecodeCache.getBytecode(it.name, it.source.text)
 
             def newClass = !Play.@classes.hasClass(appClass.name)
@@ -192,17 +207,12 @@ class GroovyPlugin extends PlayPlugin {
             if (cachedBytecode) {
                 appClass.enhancedByteCode = cachedBytecode
             } else {
-                appClass.enhancedByteCode = it.code
-
                 //Groovy classes also need Play byte code enhances
                 appClass.enhance()
 
                 BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, it.source.text)
             }
 
-            appClass.compiled = true;
-            appClass.javaSource = it.source.text
-            appClass.timestamp = it.source.lastModified()
             //Make Play see (replace) current classes
             Play.@classes.add(appClass)
             //Need to cache byte code or you won't see any changes
@@ -225,6 +235,10 @@ class GroovyPlugin extends PlayPlugin {
         }
 
         return toReload
+    }
+
+    def enhanceUpdated(updatedClasses) {
+
     }
 
     def getClass(name, code) {
