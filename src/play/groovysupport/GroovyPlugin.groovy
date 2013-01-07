@@ -22,6 +22,7 @@ class GroovyPlugin extends PlayPlugin {
 
     def groovyCompiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
     def clearStampsEnhancer = new ClearGroovyStampsEnhancer()
+    def ensureStaticClassInfoEnhancer = new EnsureStaticClassInfoEnhancer()
     def testRunnerEnhancer = new TestRunnerEnhancer()
 
     @Override
@@ -71,12 +72,12 @@ class GroovyPlugin extends PlayPlugin {
             cacheByteCode(classes)
         }
 
+        Logger.debug("Changed classes updated")
         return true;
     }
 
     @Override
     boolean compileSources() {
-        Logger.debug("Recompiling all sources")
         Logger.debug "START FULL COMPILATION"
         def start = System.currentTimeMillis()
         def sources = findSources()
@@ -107,6 +108,7 @@ class GroovyPlugin extends PlayPlugin {
     @Override
     void enhance(ApplicationClass applicationClass) {
         clearStampsEnhancer.enhanceThisClass(applicationClass)
+        ensureStaticClassInfoEnhancer.enhanceThisClass(applicationClass)
         testRunnerEnhancer.enhanceThisClass(applicationClass)
     }
 
@@ -183,15 +185,20 @@ class GroovyPlugin extends PlayPlugin {
             toReload << new java.lang.instrument.ClassDefinition(classDef.appClass.javaClass, classDef.appClass.enhancedByteCode)
         }
 
-        if (HotswapAgent.enabled && toReload) {
-            Cache.clear();
-            try {
-                HotswapAgent.reload(toReload as java.lang.instrument.ClassDefinition[])
-            } catch (Throwable e) {
+        if (toReload) {
+            if (HotswapAgent.enabled) {
+                Cache.clear();
+                try {
+                    HotswapAgent.reload(toReload as java.lang.instrument.ClassDefinition[])
+                } catch (Throwable e) {
+                    Logger.info("Error hotswapping classes: ${e.localizedMessage}. Need to reload whole application")
+                    throw new RuntimeException("Need reload")
+                }
+            } else {
+                Logger.info("Hot swap disabled. Need to reload whole application")
                 throw new RuntimeException("Need reload")
+
             }
-        } else {
-            throw new RuntimeException("Need reload")
         }
     }
 
@@ -239,7 +246,12 @@ class GroovyPlugin extends PlayPlugin {
 
     private ApplicationClass toApplicationClass(ClassDefinition classDef) {
         def appClass = Play.@classes.getApplicationClass(classDef.name)
-        if (!appClass) appClass = new ApplicationClass(classDef.name)
+
+        if (!appClass) {
+            appClass = new ApplicationClass()
+            appClass.name = classDef.name
+        }
+
         appClass.javaFile = VirtualFile.open(classDef.source)
         appClass.javaByteCode = classDef.code
         appClass.enhancedByteCode = classDef.code
