@@ -17,9 +17,13 @@ class Application extends Controller {
 		renderArgs.put("blogTitle", Play.configuration.getProperty("blog.title"))
 		renderArgs.put("blogBaseline", Play.configuration.getProperty("blog.baseline"))
 	}
+	
+	static void dupe45() {
+	
+	}
 
 	static void index() {
-		println "ROMAN5"
+		println "ROMAN1"
 		Post frontPost = Post.find('order by postedAt desc').first()
 		List<Post> olderPosts = Post.find('order by postedAt desc').from(1).fetch(1)
 		render(frontPost, olderPosts)
