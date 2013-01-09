@@ -30,8 +30,8 @@ class GroovyCompiler {
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
-        def javaCompiler = new PlayJavaCompiler()
-        cu.compilerFactory = new PlayJavaCompilerFactory(javaCompiler)
+        def javaCompiler = new EcjJavaCompiler()
+        cu.compilerFactory = new ConstantCompilerFactory(javaCompiler)
         cu.addSources(sources*.file as File[])
 
         try {
@@ -111,20 +111,6 @@ class GroovyCompiler {
                     return maybeAlreadyLoaded;
                 }
             }
-        }
-    }
-
-    private class PlayJavaCompilerFactory implements JavaCompilerFactory {
-
-        PlayJavaCompiler compiler
-
-        PlayJavaCompilerFactory(PlayJavaCompiler compiler) {
-            this.compiler = compiler
-        }
-
-        @Override
-        JavaCompiler createCompiler(CompilerConfiguration config) {
-            return compiler
         }
     }
 }

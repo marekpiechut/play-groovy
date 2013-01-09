@@ -16,7 +16,6 @@ import play.vfs.VirtualFile
 import java.security.ProtectionDomain
 
 import play.groovysupport.compiler.*
-import play.groovysupport.compiler.Source.Language
 
 class GroovyPlugin extends PlayPlugin {
 
@@ -133,9 +132,9 @@ class GroovyPlugin extends PlayPlugin {
             virtualFile.realFile.eachFileRecurse(FileType.FILES, { f ->
                 if (!filter || filter(f)) {
                     if (f.name.endsWith('.java')) {
-                        sources << new Source(virtualFile.realFile, f, Language.JAVA)
+                        sources << new Source(virtualFile.realFile, f)
                     } else if (f.name.endsWith('.groovy')) {
-                        sources << new Source(virtualFile.realFile, f, Language.GROOVY)
+                        sources << new Source(virtualFile.realFile, f)
                     }
                 }
             })
@@ -260,5 +259,22 @@ class GroovyPlugin extends PlayPlugin {
         appClass.timestamp = classDef.source.lastModified()
 
         return appClass
+    }
+
+    public static def dumpFields(clazz) {
+        def fields = []
+
+        clazz.declaredFields.each {field ->
+            def items = [field.name, field.type.getName(), field.declaringClass.getName(), field.modifiers]
+            fields << items.join("; ")
+        }
+
+        def methods = []
+        clazz.declaredMethods.each {method ->
+            def items = [method.name, method.declaringClass.getName(), method.modifiers, method.returnType.getName(), method.parameterTypes*.getName().join(":")]
+            methods << items.join("; ")
+        }
+
+        return (fields.sort() + methods.sort()).join("\n")
     }
 }
