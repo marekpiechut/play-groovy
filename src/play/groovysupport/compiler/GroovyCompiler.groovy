@@ -5,14 +5,12 @@ import org.codehaus.groovy.control.MultipleCompilationErrorsException
 import org.codehaus.groovy.control.messages.SimpleMessage
 import org.codehaus.groovy.control.messages.SyntaxErrorMessage
 import org.codehaus.groovy.tools.javac.JavaAwareCompilationUnit
+import play.Logger
+import play.Play
 import play.classloading.ApplicationClasses.ApplicationClass
 import play.classloading.ApplicationClassloader
 import play.exceptions.CompilationException
 import play.vfs.VirtualFile
-import play.Logger
-import org.codehaus.groovy.tools.javac.JavaCompilerFactory
-import org.codehaus.groovy.tools.javac.JavaCompiler
-import play.Play
 
 class GroovyCompiler {
 
@@ -25,7 +23,7 @@ class GroovyCompiler {
     }
 
     synchronized def update(List<Source> sources) {
-        Logger.debug("Compiling groovy classes: ${sources*.file.name}")
+        Logger.debug("Compiling Groovy and Java classes: ${sources*.file.name}")
         //Performance: Groovy groovyCompiler also executes javac and compiles all Java classes
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
@@ -35,9 +33,6 @@ class GroovyCompiler {
         cu.addSources(sources*.file as File[])
 
         try {
-
-            def newClasses = [:]
-
             cu.compile()
 
             def sourceFileMap = new HashMap(sources.size())
@@ -48,17 +43,20 @@ class GroovyCompiler {
                 }
             }
 
+            def classes = new ArrayList<ClassDefinition>(javaCompiler.compilationResult.size() + cu.classes.size())
+
             cu.classes.each {
                 //We map sources by outer class name so we have to substring inner classes
                 def sourceName = it.name.contains('$') ? it.name[0..it.name.indexOf('$') - 1] : it.name
                 def sourceFile = sourceFileMap[sourceName]
                 def classDef = new ClassDefinition(it.name, it.bytes, sourceFile)
                 classDef.newClass = !Play.@classes.hasClass(it.name)
-                newClasses[it.name] = classDef
+                classes << classDef
             }
 
-            def classDefinitions = javaCompiler.compilationResult + newClasses.values()
-            return classDefinitions
+            classes += javaCompiler.compilationResult
+
+            return classes
 
         } catch (MultipleCompilationErrorsException e) {
 

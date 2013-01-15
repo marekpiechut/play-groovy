@@ -18,15 +18,21 @@
         <fileset dir="${play.path}/framework/lib">
             <include name="*.jar"/>
             <exclude name="groovy-all-*.jar"/>
+            <exclude name="asm-*.jar"/>
         </fileset>
         <fileset dir="${play.path}/framework">
             <include name="*.jar"/>
+            <exclude name="asm-*.jar"/>
         </fileset>
     </path>
 
+    <!--<property name="project.cp" refid="project.classpath"></property>-->
+    <!--<property name="play.cp" refid="play.classpath"></property>-->
+    <!--<echo>${project.cp};${play.cp}</echo>-->
+
+
     <taskdef name="groovyc" classname="org.codehaus.groovy.ant.Groovyc"
              classpathref="project.classpath"/>
-
 
     <target name="build" depends="check">
         <delete dir="tmp"/>
@@ -35,8 +41,8 @@
         <mkdir dir="tmp/classes"/>
 
         <javac srcdir="src" destdir="tmp/classes" debug="true" source="1.5" target="1.5">
-            <classpath refid="play.classpath"/>
             <classpath refid="project.classpath"/>
+            <classpath refid="play.classpath"/>
         </javac>
 
         <copy todir="tmp/classes">
@@ -48,8 +54,8 @@
         </copy>
 
         <groovyc srcdir="src" destdir="tmp/classes">
+            <classpath refid="project.classpath" />
             <classpath refid="play.classpath"/>
-            <classpath refid="project.classpath"/>
             <javac source="1.5" target="1.5"/>
         </groovyc>
 

@@ -159,7 +159,7 @@ class GroovyPlugin extends PlayPlugin {
     private void enhanceApplicationClasses(Collection<ClassDefinition> toEnhance) {
         toEnhance.each {classDef ->
             def appClass = classDef.appClass
-            appClass.enhance()
+            appClass.enhancedByteCode = appClass.enhance()
 
             if (!appClass.javaClass) {
                 appClass.javaClass = getClass(appClass.name, appClass.enhancedByteCode)
