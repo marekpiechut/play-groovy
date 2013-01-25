@@ -17,4 +17,12 @@ public class Source {
     String toString() {
         return file?.getName()
     }
+
+    boolean isJava() {
+        file.name.endsWith('.java')
+    }
+
+    boolean isGroovy() {
+        file.name.endsWith('.groovy')
+    }
 }

@@ -43,9 +43,12 @@ class PlayGroovyCompilerConfiguration extends CompilerConfiguration {
         }
 
         //Options for Javac groovyCompiler used internally by Groovy groovyCompiler to handle java code
-        def compilerOptions = ['source': sourceVersion, 'target': sourceVersion,
+        def compilerOptions = [
+                'source': sourceVersion, 'target': sourceVersion,
                 'keepStubs': true, 'stubDir': stubsFolder,
-                'namedValues': namedValues as String[]]
+                'namedValues': namedValues as String[],
+                'flags': ['g'] as String[] //We NEED debugging symbols. Many Play tools depends on that
+        ]
         jointCompilationOptions = compilerOptions
     }
 

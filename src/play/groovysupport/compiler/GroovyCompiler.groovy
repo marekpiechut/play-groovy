@@ -28,7 +28,7 @@ class GroovyCompiler {
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
-        def javaCompiler = new EcjJavaCompiler()
+        def javaCompiler = new JavacJavaCompiler(compilerConf, sources)
         cu.compilerFactory = new ConstantCompilerFactory(javaCompiler)
         cu.addSources(sources*.file as File[])
 
@@ -63,12 +63,9 @@ class GroovyCompiler {
             if (e.getErrorCollector().getLastError() != null) {
 
                 def errorMessage = e.getErrorCollector().getLastError()// as SyntaxErrorMessage
+
                 if (errorMessage instanceof SimpleMessage) {
-                    // TODO: this shouldn't happen but handle it somehow
-                    // just in case
-                    println 'This is really bad and should not have happened'
-                    e.printStackTrace()
-                    System.exit(1)
+                    throw new CompilationException(errorMessage.message)
                 } else if (errorMessage instanceof SyntaxErrorMessage) {
                     def syntaxException = errorMessage.cause
 

@@ -6,9 +6,9 @@ import org.codehaus.groovy.control.CompilerConfiguration
 
 class ConstantCompilerFactory implements JavaCompilerFactory {
 
-    EcjJavaCompiler compiler
+    JavaCompiler compiler
 
-    ConstantCompilerFactory(EcjJavaCompiler compiler) {
+    ConstantCompilerFactory(JavaCompiler compiler) {
         this.compiler = compiler
     }
 

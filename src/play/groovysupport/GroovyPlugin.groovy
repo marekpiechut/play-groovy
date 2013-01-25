@@ -63,7 +63,7 @@ class GroovyPlugin extends PlayPlugin {
             updateApplicationClasses(classes)
             enhanceApplicationClasses(classes)
 
-            def toHotswap = classes.grep {!it.newClass}
+            def toHotswap = classes.grep { !it.newClass }
             hotswapClasses(toHotswap)
 
             removeDeletedClasses()
@@ -157,7 +157,7 @@ class GroovyPlugin extends PlayPlugin {
     }
 
     private void enhanceApplicationClasses(Collection<ClassDefinition> toEnhance) {
-        toEnhance.each {classDef ->
+        toEnhance.each { classDef ->
             def appClass = classDef.appClass
             appClass.enhancedByteCode = appClass.enhance()
 
@@ -171,7 +171,7 @@ class GroovyPlugin extends PlayPlugin {
 
         def toReload = new ArrayList<>(classes.size())
 
-        classes.each {classDef ->
+        classes.each { classDef ->
             if (classDef.groovy) {
                 //Groovy classes need method call cache cleared on hotswap
                 try {
@@ -259,22 +259,5 @@ class GroovyPlugin extends PlayPlugin {
         appClass.timestamp = classDef.source.lastModified()
 
         return appClass
-    }
-
-    public static def dumpFields(clazz) {
-        def fields = []
-
-        clazz.declaredFields.each {field ->
-            def items = [field.name, field.type.getName(), field.declaringClass.getName(), field.modifiers]
-            fields << items.join("; ")
-        }
-
-        def methods = []
-        clazz.declaredMethods.each {method ->
-            def items = [method.name, method.declaringClass.getName(), method.modifiers, method.returnType.getName(), method.parameterTypes*.getName().join(":")]
-            methods << items.join("; ")
-        }
-
-        return (fields.sort() + methods.sort()).join("\n")
     }
 }
