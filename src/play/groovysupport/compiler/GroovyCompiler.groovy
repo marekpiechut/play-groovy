@@ -12,6 +12,9 @@ import play.classloading.ApplicationClassloader
 import play.exceptions.CompilationException
 import play.vfs.VirtualFile
 
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+
 class GroovyCompiler {
 
     def compilerConf
@@ -65,7 +68,8 @@ class GroovyCompiler {
                 def errorMessage = e.getErrorCollector().getLastError()// as SyntaxErrorMessage
 
                 if (errorMessage instanceof SimpleMessage) {
-                    throw new CompilationException(errorMessage.message)
+                    CompilationException exception = parseCompilationError(errorMessage)
+                    throw exception
                 } else if (errorMessage instanceof SyntaxErrorMessage) {
                     def syntaxException = errorMessage.cause
 
@@ -80,6 +84,27 @@ class GroovyCompiler {
 
             throw new CompilationException(e.message)
         }
+    }
+
+    private static final Pattern JAVAC_ERROR_PATTERN = Pattern.compile(
+            /.*?javac.*?\s+(?<file>[^\s]+\.java):(?<line>\d+):\s+error:(?<error>.*?)\s+\^\s.*/,
+            Pattern.DOTALL)
+
+    private CompilationException parseCompilationError(SimpleMessage compilationError) {
+        String message = compilationError.message
+        Matcher matcher = JAVAC_ERROR_PATTERN.matcher(message)
+        if (matcher.matches()) {
+            String fileName = matcher.group("file")
+            String line = matcher.group("line")
+            String problem = matcher.group("error")
+            if (fileName) {
+                VirtualFile source = VirtualFile.open(fileName)
+                int lineNo = line as int
+                return new CompilationException(source, problem, lineNo, 0, 0)
+            }
+        }
+
+        return new CompilationException(message)
     }
 
     /**
