@@ -1,14 +1,12 @@
 package play.groovysupport.compiler
 
-import groovy.transform.ToString
+import groovy.transform.CompileStatic
 import play.classloading.ApplicationClasses.ApplicationClass
-import play.Play
-import play.vfs.VirtualFile
 
 /**
  * @author Marek Piechut <marek.piechut@gmail.com>
  */
-@ToString
+@CompileStatic
 class ClassDefinition {
     String name
     byte[] code
@@ -24,5 +22,10 @@ class ClassDefinition {
 
     boolean isGroovy() {
         source?.name.endsWith('.groovy')
+    }
+
+    @Override
+    String toString() {
+        return "ClassDefinition: $name, compiled: ${code != null}, isNew: $newClass"
     }
 }

@@ -1,6 +1,8 @@
 package play.groovysupport
 
 import groovy.io.FileType
+import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
 import play.Logger
 import play.Play
 import play.Play.Mode
@@ -13,16 +15,18 @@ import play.classloading.BytecodeCache
 import play.classloading.HotswapAgent
 import play.vfs.VirtualFile
 
+import java.lang.reflect.Method
 import java.security.ProtectionDomain
 
 import play.groovysupport.compiler.*
 
+@TypeChecked(extensions = [])
 class GroovyPlugin extends PlayPlugin {
 
-    def groovyCompiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
-    def clearStampsEnhancer = new ClearGroovyStampsEnhancer()
-    def ensureStaticClassInfoEnhancer = new EnsureStaticClassInfoEnhancer()
-    def testRunnerEnhancer = new TestRunnerEnhancer()
+    GroovyCompiler groovyCompiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
+    ClearGroovyStampsEnhancer clearStampsEnhancer = new ClearGroovyStampsEnhancer()
+    EnsureStaticClassInfoEnhancer ensureStaticClassInfoEnhancer = new EnsureStaticClassInfoEnhancer()
+    TestRunnerEnhancer testRunnerEnhancer = new TestRunnerEnhancer()
 
     @Override
     void onLoad() {
@@ -58,17 +62,17 @@ class GroovyPlugin extends PlayPlugin {
         }
 
         Logger.debug("Updating changed classes")
-        def sources = findSources(isChanged)
+        List<Source> sources = findSources(this.&isChanged)
         Logger.debug("Updated sources: ${sources}")
         if (sources) {
             //Groovy groovyCompiler needs to have also java files to support cross compilation
             //it will not compile them but needs to resolve classes there to compile Groovy code
-            def classes = groovyCompiler.update(sources)
+            Collection<ClassDefinition> classes = groovyCompiler.update(sources)
 
             updateApplicationClasses(classes)
             enhanceApplicationClasses(classes)
 
-            def toHotswap = classes.grep { !it.newClass }
+            Collection<ClassDefinition> toHotswap = classes.grep { ClassDefinition it -> !it.newClass }
             hotswapClasses(toHotswap)
 
             removeDeletedClasses()
@@ -83,17 +87,17 @@ class GroovyPlugin extends PlayPlugin {
     @Override
     boolean compileSources() {
         Logger.debug "START FULL COMPILATION"
-        def start = System.currentTimeMillis()
-        def sources = findSources()
+        long start = System.currentTimeMillis()
+        List<Source> sources = findSources()
 
-        def classes = groovyCompiler.update(sources)
+        Collection<ClassDefinition> classes = groovyCompiler.update(sources)
         updateApplicationClasses(classes)
 
-        def toEnhance = []
+        Collection toEnhance = new ArrayList(classes.size())
         //Try to get enhanced code from cache
-        classes.each {
-            def appClass = it.appClass
-            def cachedBytecode = BytecodeCache.getBytecode(appClass.name, appClass.javaSource)
+        classes.each { ClassDefinition it ->
+            ApplicationClass appClass = it.appClass
+            byte[] cachedBytecode = BytecodeCache.getBytecode(appClass.name, appClass.javaSource)
 
             if (cachedBytecode) {
                 appClass.enhancedByteCode = cachedBytecode
@@ -116,7 +120,7 @@ class GroovyPlugin extends PlayPlugin {
         testRunnerEnhancer.enhanceThisClass(applicationClass)
     }
 
-    private def isChanged = { file ->
+    private boolean isChanged(File file) {
         for (appClass in Play.@classes.all()) {
             if (appClass.javaFile.realFile == file) {
                 return (appClass.timestamp < file.lastModified())
@@ -131,10 +135,10 @@ class GroovyPlugin extends PlayPlugin {
      *
      * @return Map [file -> modify stamp]
      */
-    List<Source> findSources(filter = null) {
-        def sources = []
-        Play.javaPath.grep({ it.exists() }).each { virtualFile ->
-            virtualFile.realFile.eachFileRecurse(FileType.FILES, { f ->
+    List<Source> findSources(Closure filter = null) {
+        List<Source> sources = new ArrayList<>()
+        Play.javaPath.grep({ VirtualFile it -> it.exists() }).each { VirtualFile virtualFile ->
+            virtualFile.realFile.eachFileRecurse(FileType.FILES, { File f ->
                 if (!filter || filter(f)) {
                     if (f.name.endsWith('.java')) {
                         sources << new Source(virtualFile.realFile, f)
@@ -152,18 +156,18 @@ class GroovyPlugin extends PlayPlugin {
      * Update Play internal ApplicationClasses
      */
     private void updateApplicationClasses(Collection<ClassDefinition> updatedClasses) {
-        Logger.debug("Updating internal Play classes: ${updatedClasses*.name}")
+        Logger.debug("Updating internal Play classes: ${updatedClasses.join("\n")}")
 
-        updatedClasses.each {
-            def appClass = toApplicationClass(it)
+        updatedClasses.each { ClassDefinition it ->
+            ApplicationClass appClass = toApplicationClass(it)
             it.appClass = appClass
             Play.@classes.add(appClass)
         }
     }
 
     private void enhanceApplicationClasses(Collection<ClassDefinition> toEnhance) {
-        toEnhance.each { classDef ->
-            def appClass = classDef.appClass
+        toEnhance.each { ClassDefinition classDef ->
+            ApplicationClass appClass = classDef.appClass
             appClass.enhancedByteCode = appClass.enhance()
 
             if (!appClass.javaClass) {
@@ -174,9 +178,9 @@ class GroovyPlugin extends PlayPlugin {
 
     void hotswapClasses(Collection<ClassDefinition> classes) {
 
-        def toReload = new ArrayList<>(classes.size())
+        List toReload = new ArrayList(classes.size())
 
-        classes.each { classDef ->
+        classes.each { ClassDefinition classDef ->
             if (classDef.groovy) {
                 //Groovy classes need method call cache cleared on hotswap
                 try {
@@ -207,15 +211,15 @@ class GroovyPlugin extends PlayPlugin {
     }
 
     private void cacheByteCode(Collection<ClassDefinition> classDefs) {
-        classDefs.each {
-            def appClass = it.appClass
+        classDefs.each { ClassDefinition it ->
+            ApplicationClass appClass = it.appClass
             BytecodeCache.cacheBytecode(appClass.enhancedByteCode, appClass.name, appClass.javaSource)
         }
     }
 
     private void removeDeletedClasses() {
         Logger.debug("Removing deleted classes from classloader")
-        Play.@classes.all().each {
+        Play.@classes.all().each { ApplicationClass it ->
             if (!it.javaFile.exists()) {
                 Play.@classes.remove(it)
                 Logger.debug("Removed: ${it.name}")
@@ -236,20 +240,20 @@ class GroovyPlugin extends PlayPlugin {
         }
     }
 
-    def getClass(name, code) {
+    Class getClass(String name, byte[] code) {
         try {
-            def method = ApplicationClassloader.class.getMethod('loadClass', String.class)
+            Method method = ApplicationClassloader.class.getMethod('loadClass', String.class)
             method.accessible = true
-            return method.invoke(Play.classloader, name)
+            return method.invoke(Play.classloader, name) as Class
         } catch (Exception ex) {
-            def method = ClassLoader.class.getDeclaredMethod('defineClass', String.class, byte[].class, Integer.TYPE, Integer.TYPE, ProtectionDomain.class)
+            Method method = ClassLoader.class.getDeclaredMethod('defineClass', String.class, byte[].class, Integer.TYPE, Integer.TYPE, ProtectionDomain.class)
             method.accessible = true
-            return method.invoke(Play.classloader, name, code, 0, code.length, Play.classloader.protectionDomain)
+            return method.invoke(Play.classloader, name, code, 0, code.length, Play.classloader.protectionDomain) as Class
         }
     }
 
     private ApplicationClass toApplicationClass(ClassDefinition classDef) {
-        def appClass = Play.@classes.getApplicationClass(classDef.name)
+        ApplicationClass appClass = Play.@classes.getApplicationClass(classDef.name)
 
         if (!appClass) {
             appClass = new ApplicationClass()

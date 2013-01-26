@@ -29,7 +29,7 @@ class GroovyCompiler {
         groovyClassLoader = new GroovyClassLoader(new CompilerClassLoader(), compilerConf)
     }
 
-    synchronized def update(List<Source> sources) {
+    synchronized Collection<ClassDefinition> update(List<Source> sources) {
         Logger.debug("Compiling Groovy and Java classes: ${sources*.file.name}")
         //Performance: Groovy groovyCompiler also executes javac and compiles all Java classes
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)

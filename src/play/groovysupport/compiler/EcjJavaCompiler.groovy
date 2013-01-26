@@ -166,7 +166,7 @@ class EcjJavaCompiler implements PlayJavaCompiler {
                         return new NameEnvironmentAnswer(classFileReader, null);
                     }
                     // Cascade compilation
-                    ICompilationUnit compilationUnit = new CompilationUnit(name);
+                    ICompilationUnit compilationUnit = new PlayCompilationUnit(new File(name), false);
                     return new NameEnvironmentAnswer(compilationUnit, null);
                 }
 
