@@ -19,9 +19,13 @@ class GroovyCompiler {
 
     def compilerConf
     def groovyClassLoader
+    boolean useEcj = true
 
     def GroovyCompiler(CompilerConfiguration configuration) {
         compilerConf = configuration
+        String compiler = Play.configuration.getProperty("play.groovy.java.compiler", "javac")
+        Logger.info("Using $compiler java compiler")
+        useEcj = compiler == "ecj"
         groovyClassLoader = new GroovyClassLoader(new CompilerClassLoader(), compilerConf)
     }
 
@@ -31,7 +35,7 @@ class GroovyCompiler {
         //Maybe we could get them somehow instead of executing ECJ (Play groovyCompiler)
         //or use ECJ also here and don't process java files in second compilation
         def cu = new JavaAwareCompilationUnit(compilerConf, groovyClassLoader)
-        def javaCompiler = new JavacJavaCompiler(compilerConf, sources)
+        def javaCompiler = useEcj ? new EcjJavaCompiler() : new JavacJavaCompiler(compilerConf, sources)
         cu.compilerFactory = new ConstantCompilerFactory(javaCompiler)
         cu.addSources(sources*.file as File[])
 

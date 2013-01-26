@@ -44,6 +44,11 @@ class GroovyPlugin extends PlayPlugin {
     }
 
     @Override
+    void onConfigurationRead() {
+        groovyCompiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
+    }
+
+    @Override
     boolean detectClassesChange() {
         if (!Play.started) {
             //Don't try to compile all stuff as it will be compiled again in a second
