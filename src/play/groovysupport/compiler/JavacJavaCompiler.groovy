@@ -7,7 +7,6 @@ import play.Play
 /**
  * @author Marek Piechut <m.piechut@tt.com.pl>
  */
-@CompileStatic
 class JavacJavaCompiler extends org.codehaus.groovy.tools.javac.JavacJavaCompiler implements PlayJavaCompiler {
 
     CompilerConfiguration config

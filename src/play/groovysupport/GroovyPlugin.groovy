@@ -1,8 +1,6 @@
 package play.groovysupport
 
 import groovy.io.FileType
-import groovy.transform.CompileStatic
-import groovy.transform.TypeChecked
 import play.Logger
 import play.Play
 import play.Play.Mode
@@ -13,14 +11,12 @@ import play.classloading.ApplicationClassloader
 import play.classloading.ApplicationClassloaderState
 import play.classloading.BytecodeCache
 import play.classloading.HotswapAgent
+import play.groovysupport.compiler.*
 import play.vfs.VirtualFile
 
 import java.lang.reflect.Method
 import java.security.ProtectionDomain
 
-import play.groovysupport.compiler.*
-
-@TypeChecked(extensions = [])
 class GroovyPlugin extends PlayPlugin {
 
     GroovyCompiler groovyCompiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
@@ -45,11 +41,6 @@ class GroovyPlugin extends PlayPlugin {
                 Play.start()
             }
         }
-    }
-
-    @Override
-    void onConfigurationRead() {
-        groovyCompiler = new GroovyCompiler(new PlayGroovyCompilerConfiguration())
     }
 
     @Override
