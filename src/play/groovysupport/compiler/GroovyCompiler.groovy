@@ -91,16 +91,16 @@ class GroovyCompiler {
     }
 
     private static final Pattern JAVAC_ERROR_PATTERN = Pattern.compile(
-            /.*?javac.*?\s+(?<file>[^\s]+\.java):(?<line>\d+):\s+error:(?<error>.*?)\s+\^\s.*/,
+            /.*?javac.*?\s+([^\s]+\.java):(\d+):\s+error:(.*?)\s+\^\s.*/,
             Pattern.DOTALL)
 
     private CompilationException parseCompilationError(SimpleMessage compilationError) {
         String message = compilationError.message
         Matcher matcher = JAVAC_ERROR_PATTERN.matcher(message)
         if (matcher.matches()) {
-            String fileName = matcher.group("file")
-            String line = matcher.group("line")
-            String problem = matcher.group("error")
+            String fileName = matcher.group(1)
+            String line = matcher.group(2)
+            String problem = matcher.group(3)
             if (fileName) {
                 VirtualFile source = VirtualFile.open(fileName)
                 int lineNo = line as int
