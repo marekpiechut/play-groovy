@@ -1,6 +1,5 @@
 package play.groovysupport.compiler
 
-import groovy.transform.CompileStatic
 import org.codehaus.groovy.control.CompilerConfiguration
 import play.Play
 

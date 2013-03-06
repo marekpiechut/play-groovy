@@ -1,12 +1,10 @@
 package play.groovysupport.compiler
 
-import groovy.transform.CompileStatic
 import play.classloading.ApplicationClasses.ApplicationClass
 
 /**
  * @author Marek Piechut <marek.piechut@gmail.com>
  */
-@CompileStatic
 class ClassDefinition {
     String name
     byte[] code
