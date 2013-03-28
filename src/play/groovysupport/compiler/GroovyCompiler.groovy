@@ -72,6 +72,7 @@ class GroovyCompiler {
                 def errorMessage = e.getErrorCollector().getLastError()// as SyntaxErrorMessage
 
                 if (errorMessage instanceof SimpleMessage) {
+                    Logger.fatal(errorMessage.message)
                     CompilationException exception = parseCompilationError(errorMessage)
                     throw exception
                 } else if (errorMessage instanceof SyntaxErrorMessage) {

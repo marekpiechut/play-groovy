@@ -17,12 +17,9 @@
         <pathelement path="${play.path}/framework/classes"/>
         <fileset dir="${play.path}/framework/lib">
             <include name="*.jar"/>
-            <exclude name="groovy-all-*.jar"/>
-            <exclude name="asm-*.jar"/>
         </fileset>
         <fileset dir="${play.path}/framework">
             <include name="*.jar"/>
-            <exclude name="asm-*.jar"/>
         </fileset>
     </path>
 
@@ -32,7 +29,7 @@
 
 
     <taskdef name="groovyc" classname="org.codehaus.groovy.ant.Groovyc"
-             classpathref="project.classpath"/>
+             classpathref="play.classpath"/>
 
     <target name="build" depends="check">
         <delete dir="tmp"/>

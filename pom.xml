@@ -31,7 +31,7 @@ under the License.
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.marekpiechut.play.modules</groupId>
     <artifactId>play-groovy</artifactId>
-    <version>0.2.991</version>
+    <version>0.2.3</version>
     <packaging>jar</packaging>
 
     <name>Play! Groovy Module</name>
@@ -84,23 +84,11 @@ under the License.
             <artifactId>play</artifactId>
             <version>${play.version}</version>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.codehaus.groovy</groupId>
-                    <artifactId>groovy-all</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.groovy</groupId>
-            <artifactId>groovy-all</artifactId>
-            <version>2.1.0</version>
-            <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.spockframework</groupId>
             <artifactId>spock-core</artifactId>
-            <version>0.7-groovy-2.0</version>
+            <version>0.7-groovy-1.8</version>
             <type>jar</type>
         </dependency>
         <dependency>
@@ -164,7 +152,7 @@ under the License.
                     </execution>
                 </executions>
                 <configuration>
-                    <providerSelection>2.0</providerSelection>
+                    <providerSelection>1.8</providerSelection>
                     <sources>
                         <fileset>
                             <directory>${pom.basedir}/src</directory>

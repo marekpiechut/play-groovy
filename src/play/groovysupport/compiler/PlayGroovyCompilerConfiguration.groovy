@@ -47,7 +47,7 @@ class PlayGroovyCompilerConfiguration extends CompilerConfiguration {
                 'source': sourceVersion, 'target': sourceVersion,
                 'keepStubs': true, 'stubDir': stubsFolder,
                 'namedValues': namedValues as String[],
-                'flags': ['g'] as String[] //We NEED debugging symbols. Many Play tools depends on that
+                'flags': ['g', 'implicit:class'] as String[] //We NEED debugging symbols. Many Play tools depends on that
         ]
         jointCompilationOptions = compilerOptions
     }
